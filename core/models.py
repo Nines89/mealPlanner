@@ -1,0 +1,253 @@
+from django.db import models
+from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator
+
+
+# ─────────────────────────────────────────
+# SLOT PASTO
+# ─────────────────────────────────────────
+
+class MealSlotDefault(models.Model):
+    """Struttura giornata globale (Colazione, Pranzo, Cena)."""
+    name = models.CharField(max_length=50)
+    order = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class MealSlot(models.Model):
+    """Struttura giornata personalizzata per utente."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meal_slots')
+    name = models.CharField(max_length=50)
+    order = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ['order']
+        unique_together = [('user', 'order')]  # niente slot con stesso ordine per utente
+
+    def __str__(self):
+        return f"{self.user.username} — {self.name}"
+
+
+# ─────────────────────────────────────────
+# PROFILO UTENTE
+# ─────────────────────────────────────────
+
+class DietStyle(models.TextChoices):
+    NONE        = 'none',         'Nessuno'
+    VEGETARIAN  = 'vegetarian',   'Vegetariano'
+    VEGAN       = 'vegan',        'Vegano'
+    PESCATARIAN = 'pescatarian',  'Pescatariano'
+
+
+class UserProfile(models.Model):
+    """Estende User con target nutrizionali e preferenze."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+
+    # Target nutrizionali giornalieri
+    target_kcal    = models.PositiveIntegerField(default=2000)
+    target_protein = models.PositiveIntegerField(default=150, help_text='grammi')
+    target_carbs   = models.PositiveIntegerField(default=200, help_text='grammi')
+    target_fat     = models.PositiveIntegerField(default=70,  help_text='grammi')
+
+    # Preferenze
+    diet_style = models.CharField(
+        max_length=20,
+        choices=DietStyle.choices,
+        default=DietStyle.NONE
+    )
+    allergies = models.TextField(blank=True, help_text='Testo libero, es: glutine, lattosio')
+
+    def __str__(self):
+        return f"Profilo di {self.user.username}"
+
+
+
+# ─────────────────────────────────────────
+# TAG (regimi speciali / allergeni)
+# ─────────────────────────────────────────
+
+class TagType(models.TextChoices):
+    DIET     = 'diet',     'Regime alimentare'
+    ALLERGEN = 'allergen', 'Allergene'
+
+class Tag(models.Model):
+    """
+    Etichetta associabile a un ingrediente.
+    Esempi: vegano, vegetariano, glutine, lattosio, frutta a guscio.
+    """
+    name     = models.CharField(max_length=50, unique=True)
+    tag_type = models.CharField(max_length=20, choices=TagType.choices)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_tag_type_display()})"
+
+
+# ─────────────────────────────────────────
+# STAGIONALITÀ
+# ─────────────────────────────────────────
+
+class Season(models.TextChoices):
+    SPRING = 'spring', 'Primavera'
+    SUMMER = 'summer', 'Estate'
+    AUTUMN = 'autumn', 'Autunno'
+    WINTER = 'winter', 'Inverno'
+
+
+class SeasonEntry(models.Model):
+    """
+    Tabella semplice con le 4 stagioni.
+    Separata da TextChoices per permettere la relazione M:M con Ingredient.
+    """
+    name = models.CharField(max_length=10, choices=Season.choices, unique=True)
+
+    def __str__(self):
+        return self.get_name_display()
+
+
+# ─────────────────────────────────────────
+# INGREDIENTI
+# ─────────────────────────────────────────
+
+class IngredientCategory(models.TextChoices):
+    PROTEIN   = 'protein',   'Proteina'
+    VEGETABLE = 'vegetable', 'Verdura'
+    CARB      = 'carb',      'Carboidrato'
+    FAT       = 'fat',       'Grasso'
+    DAIRY     = 'dairy',     'Latticino'
+    FRUIT     = 'fruit',     'Frutta'
+    OTHER     = 'other',     'Altro'
+
+
+class VegetableSubcategory(models.TextChoices):
+    LEAFY    = 'leafy',    'Ortaggi a foglia'
+    ROOT     = 'root',     'Radici'
+    TUBER    = 'tuber',    'Tuberi'
+    FLOWER   = 'flower',   'Ortaggi a fiore'
+    FRUIT_VEG = 'fruit_veg', 'Ortaggi a frutto'
+    BULB     = 'bulb',     'Bulbi'
+    STEM     = 'stem',     'Ortaggi a fusto'
+    LEGUME   = 'legume',   'Legumi'
+
+
+class Ingredient(models.Model):
+    """
+    Ingrediente con valori nutrizionali per 100g.
+    Dato di sistema: popolato da staff, non dagli utenti.
+    """
+    # Identificazione
+    name     = models.CharField(max_length=100, unique=True)
+    category = models.CharField(
+        max_length=20,
+        choices=IngredientCategory.choices,
+        default=IngredientCategory.OTHER
+    )
+    # Attivo solo se category == 'vegetable'
+    vegetable_subcategory = models.CharField(
+        max_length=20,
+        choices=VegetableSubcategory.choices,
+        blank=True,
+        default=''
+    )
+
+    # Valori per 100g — macro
+    kcal    = models.DecimalField(max_digits=6, decimal_places=2, validators=[MinValueValidator(0)])
+    protein = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    carbs   = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    fat     = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+
+    # Valori per 100g — dettaglio
+    fiber           = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    sugars          = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    saturated_fat   = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    salt            = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+
+    # Relazioni
+    tags    = models.ManyToManyField(Tag, blank=True, related_name='ingredients')
+    seasons = models.ManyToManyField(SeasonEntry, blank=True, related_name='ingredients')
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+    def clean(self):
+        """Validazione: subcategoria vegetale coerente con la categoria."""
+        from django.core.exceptions import ValidationError
+        if self.category != 'vegetable' and self.vegetable_subcategory:
+            raise ValidationError(
+                'vegetable_subcategory può essere impostato solo se category è "vegetable".'
+            )
+
+# ─────────────────────────────────────────
+# MEAL
+# ─────────────────────────────────────────
+
+class Meal(models.Model):
+    """
+    Collezione di ingredienti riutilizzabile.
+    Le quantità vengono calcolate al momento dell'assegnazione al piano.
+    """
+    name        = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    ingredients = models.ManyToManyField(Ingredient, through='MealIngredient')
+
+    def __str__(self):
+        return self.name
+
+
+class MealIngredient(models.Model):
+    """Tabella ponte Meal ↔ Ingredient con quantità in grammi."""
+    meal       = models.ForeignKey(Meal, on_delete=models.CASCADE, related_name='meal_ingredients')
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='meal_ingredients')
+    grams      = models.DecimalField(max_digits=6, decimal_places=1, validators=[MinValueValidator(0)])
+
+    class Meta:
+        unique_together = [('meal', 'ingredient')]  # stesso ingrediente non appare due volte
+
+    def __str__(self):
+        return f"{self.meal.name} — {self.ingredient.name} {self.grams}g"
+
+
+# ─────────────────────────────────────────
+# PIANO SETTIMANALE
+# ─────────────────────────────────────────
+
+class WeekPlan(models.Model):
+    """Piano settimanale di un utente."""
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='week_plans')
+    week_start = models.DateField(help_text='Lunedì della settimana')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('user', 'week_start')]  # un piano per utente per settimana
+
+    def __str__(self):
+        return f"{self.user.username} — settimana del {self.week_start}"
+
+
+class WeekDay(models.IntegerChoices):
+    MONDAY    = 0, 'Lunedì'
+    TUESDAY   = 1, 'Martedì'
+    WEDNESDAY = 2, 'Mercoledì'
+    THURSDAY  = 3, 'Giovedì'
+    FRIDAY    = 4, 'Venerdì'
+    SATURDAY  = 5, 'Sabato'
+    SUNDAY    = 6, 'Domenica'
+
+
+class WeekPlanSlot(models.Model):
+    """Singolo slot del piano: giorno × slot pasto × meal assegnata."""
+    week_plan = models.ForeignKey(WeekPlan, on_delete=models.CASCADE, related_name='slots')
+    day       = models.IntegerField(choices=WeekDay.choices)
+    meal_slot = models.ForeignKey(MealSlot, on_delete=models.PROTECT, related_name='slots')
+    meal      = models.ForeignKey(Meal, on_delete=models.PROTECT, related_name='slots')
+
+    class Meta:
+        unique_together = [('week_plan', 'day', 'meal_slot')]  # no duplicati
+
+    def __str__(self):
+        return f"{self.week_plan} — {self.get_day_display()} — {self.meal_slot.name}"
+
