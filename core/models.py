@@ -186,16 +186,15 @@ class Ingredient(models.Model):
 # ─────────────────────────────────────────
 
 class Meal(models.Model):
-    """
-    Collezione di ingredienti riutilizzabile.
-    Le quantità vengono calcolate al momento dell'assegnazione al piano.
-    """
+    owner       = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='meals')
+    is_system   = models.BooleanField(default=False)
     name        = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     ingredients = models.ManyToManyField(Ingredient, through='MealIngredient')
 
     def __str__(self):
-        return self.name
+        prefix = '[SYS] ' if self.is_system else ''
+        return f"{prefix}{self.name}"
 
 
 class MealIngredient(models.Model):
@@ -216,16 +215,20 @@ class MealIngredient(models.Model):
 # ─────────────────────────────────────────
 
 class WeekPlan(models.Model):
-    """Piano settimanale di un utente."""
-    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='week_plans')
-    week_start = models.DateField(help_text='Lunedì della settimana')
+    owner      = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='week_plans')
+    is_system  = models.BooleanField(default=False)
+    name       = models.CharField(max_length=100, blank=True, help_text='Nome del piano, es: "Piano proteico 2000kcal"')
+    week_start = models.DateField(null=True, blank=True, help_text='Lunedì della settimana — null per piani template')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('user', 'week_start')]  # un piano per utente per settimana
+        # unique_together rimosso: un piano sistema non ha owner né week_start fisso
+        pass
 
     def __str__(self):
-        return f"{self.user.username} — settimana del {self.week_start}"
+        if self.is_system:
+            return f"[SYS] {self.name}"
+        return f"{self.owner.username} — settimana del {self.week_start}"
 
 
 class WeekDay(models.IntegerChoices):

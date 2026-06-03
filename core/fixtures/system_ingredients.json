@@ -1,0 +1,212 @@
+[
+  {
+    "model": "core.seasonentry",
+    "pk": 1,
+    "fields": { "name": "spring" }
+  },
+  {
+    "model": "core.seasonentry",
+    "pk": 2,
+    "fields": { "name": "summer" }
+  },
+  {
+    "model": "core.seasonentry",
+    "pk": 3,
+    "fields": { "name": "autumn" }
+  },
+  {
+    "model": "core.seasonentry",
+    "pk": 4,
+    "fields": { "name": "winter" }
+  },
+
+  {
+    "model": "core.tag",
+    "pk": 1,
+    "fields": { "name": "vegano", "tag_type": "diet" }
+  },
+  {
+    "model": "core.tag",
+    "pk": 2,
+    "fields": { "name": "vegetariano", "tag_type": "diet" }
+  },
+  {
+    "model": "core.tag",
+    "pk": 3,
+    "fields": { "name": "glutine", "tag_type": "allergen" }
+  },
+  {
+    "model": "core.tag",
+    "pk": 4,
+    "fields": { "name": "lattosio", "tag_type": "allergen" }
+  },
+
+  {
+    "model": "core.ingredient",
+    "pk": 1,
+    "fields": {
+      "name": "Petto di pollo",
+      "category": "protein",
+      "vegetable_subcategory": "",
+      "kcal": "110.00",
+      "protein": "23.00",
+      "carbs": "0.00",
+      "fat": "1.50",
+      "fiber": "0.00",
+      "sugars": "0.00",
+      "saturated_fat": "0.40",
+      "salt": "0.07",
+      "tags": [1, 2],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 2,
+    "fields": {
+      "name": "Salmone",
+      "category": "protein",
+      "vegetable_subcategory": "",
+      "kcal": "208.00",
+      "protein": "20.00",
+      "carbs": "0.00",
+      "fat": "13.00",
+      "fiber": "0.00",
+      "sugars": "0.00",
+      "saturated_fat": "3.10",
+      "salt": "0.06",
+      "tags": [],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 3,
+    "fields": {
+      "name": "Uova intere",
+      "category": "protein",
+      "vegetable_subcategory": "",
+      "kcal": "143.00",
+      "protein": "13.00",
+      "carbs": "0.70",
+      "fat": "10.00",
+      "fiber": "0.00",
+      "sugars": "0.70",
+      "saturated_fat": "3.10",
+      "salt": "0.14",
+      "tags": [2],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 4,
+    "fields": {
+      "name": "Spinaci",
+      "category": "vegetable",
+      "vegetable_subcategory": "leafy",
+      "kcal": "23.00",
+      "protein": "2.90",
+      "carbs": "1.40",
+      "fat": "0.40",
+      "fiber": "2.20",
+      "sugars": "0.40",
+      "saturated_fat": "0.06",
+      "salt": "0.16",
+      "tags": [1, 2],
+      "seasons": [1, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 5,
+    "fields": {
+      "name": "Zucchine",
+      "category": "vegetable",
+      "vegetable_subcategory": "fruit_veg",
+      "kcal": "17.00",
+      "protein": "1.20",
+      "carbs": "2.50",
+      "fat": "0.30",
+      "fiber": "1.10",
+      "sugars": "2.50",
+      "saturated_fat": "0.06",
+      "salt": "0.00",
+      "tags": [1, 2],
+      "seasons": [2]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 6,
+    "fields": {
+      "name": "Riso basmati",
+      "category": "carb",
+      "vegetable_subcategory": "",
+      "kcal": "356.00",
+      "protein": "7.50",
+      "carbs": "78.00",
+      "fat": "0.90",
+      "fiber": "0.40",
+      "sugars": "0.10",
+      "saturated_fat": "0.25",
+      "salt": "0.00",
+      "tags": [1, 2],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 7,
+    "fields": {
+      "name": "Pasta di semola",
+      "category": "carb",
+      "vegetable_subcategory": "",
+      "kcal": "353.00",
+      "protein": "11.00",
+      "carbs": "72.00",
+      "fat": "1.80",
+      "fiber": "2.70",
+      "sugars": "3.00",
+      "saturated_fat": "0.30",
+      "salt": "0.00",
+      "tags": [2],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+  {
+    "model": "core.ingredient",
+    "pk": 8,
+    "fields": {
+      "name": "Olio d'oliva",
+      "category": "fat",
+      "vegetable_subcategory": "",
+      "kcal": "884.00",
+      "protein": "0.00",
+      "carbs": "0.00",
+      "fat": "100.00",
+      "fiber": "0.00",
+      "sugars": "0.00",
+      "saturated_fat": "14.00",
+      "salt": "0.00",
+      "tags": [1, 2],
+      "seasons": [1, 2, 3, 4]
+    }
+  },
+
+  {
+    "model": "core.mealslotdefault",
+    "pk": 1,
+    "fields": { "name": "Colazione", "order": 1 }
+  },
+  {
+    "model": "core.mealslotdefault",
+    "pk": 2,
+    "fields": { "name": "Pranzo", "order": 2 }
+  },
+  {
+    "model": "core.mealslotdefault",
+    "pk": 3,
+    "fields": { "name": "Cena", "order": 3 }
+  }
+]
