@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Meal Planner{% endblock %}
+
+{% block content %}
+<h1>Ciao, {{ user.username }}</h1>
+
+<section>
+    <h2>I tuoi target</h2>
+    {% if user.profile %}
+        <ul>
+            <li>Calorie: {{ user.profile.target_kcal }} kcal</li>
+            <li>Proteine: {{ user.profile.target_protein }} g</li>
+            <li>Carboidrati: {{ user.profile.target_carbs }} g</li>
+            <li>Grassi: {{ user.profile.target_fat }} g</li>
+        </ul>
+    {% else %}
+        <p>Profilo non configurato.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h2>Catalogo</h2>
+    <ul>
+        <li>Ingredienti disponibili: {{ ingredient_count }}</li>
+        <li>Pasti di sistema: {{ meal_count }}</li>
+    </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Meal Planner{% endblock %}</title>
+</head>
+<body>
+    <nav>
+        <strong>Meal Planner</strong>
+        {% if user.is_authenticated %}
+            <span>{{ user.username }}</span>
+            <a href="{% url 'admin:index' %}">Admin</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit">Esci</button>
+            </form>
+        {% else %}
+            <a href="{% url 'login' %}">Accedi</a>
+            <a href="{% url 'core:register' %}">Registrati</a>
+        {% endif %}
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

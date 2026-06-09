@@ -208,5 +208,20 @@
     "model": "core.mealslotdefault",
     "pk": 3,
     "fields": { "name": "Cena", "order": 3 }
+  },
+  {
+    "model": "core.tag",
+    "pk": 5,
+    "fields": { "name": "Pesce", "tag_type": "allergen" }
+  },
+  {
+    "model": "core.tag",
+    "pk": 6,
+    "fields": { "name": "Uova", "tag_type": "allergen" }
+  },
+  {
+    "model": "core.tag",
+    "pk": 7,
+    "fields": { "name": "Frutta a guscio", "tag_type": "allergen" }
   }
 ]
