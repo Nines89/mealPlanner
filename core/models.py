@@ -45,26 +45,41 @@ class DietStyle(models.TextChoices):
 
 
 class UserProfile(models.Model):
-    """Estende User con target nutrizionali e preferenze."""
+    """Estende User con preferenze permanenti (non legate al periodo)."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-
-    # Target nutrizionali giornalieri
-    target_kcal    = models.PositiveIntegerField(default=2000)
-    target_protein = models.PositiveIntegerField(default=150, help_text='grammi')
-    target_carbs   = models.PositiveIntegerField(default=200, help_text='grammi')
-    target_fat     = models.PositiveIntegerField(default=70,  help_text='grammi')
-
-    # Preferenze
-    diet_style = models.CharField(
-        max_length=20,
-        choices=DietStyle.choices,
-        default=DietStyle.NONE
-    )
     allergies = models.TextField(blank=True, help_text='Testo libero, es: glutine, lattosio')
 
     def __str__(self):
         return f"Profilo di {self.user.username}"
 
+
+# ─────────────────────────────────────────
+# TARGET NUTRIZIONALE (per piano)
+# ─────────────────────────────────────────
+
+class NutritionTarget(models.Model):
+    """
+    Target nutrizionale + stile dietetico, selezionabile in fase
+    di creazione di un WeekPlan. Permette es. cicli bulk/cut.
+    """
+    owner     = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='nutrition_targets')
+    is_system = models.BooleanField(default=False)
+    name      = models.CharField(max_length=100, help_text='es. "Bulk 2800kcal", "Definizione vegana"')
+
+    target_kcal    = models.PositiveIntegerField(default=2000)
+    target_protein = models.PositiveIntegerField(default=150, help_text='grammi')
+    target_carbs   = models.PositiveIntegerField(default=200, help_text='grammi')
+    target_fat     = models.PositiveIntegerField(default=70,  help_text='grammi')
+
+    diet_style = models.CharField(
+        max_length=20,
+        choices=DietStyle.choices,
+        default=DietStyle.NONE
+    )
+
+    def __str__(self):
+        prefix = '[SYS] ' if self.is_system else ''
+        return f"{prefix}{self.name}"
 
 
 # ─────────────────────────────────────────
@@ -215,11 +230,12 @@ class MealIngredient(models.Model):
 # ─────────────────────────────────────────
 
 class WeekPlan(models.Model):
-    owner      = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='week_plans')
-    is_system  = models.BooleanField(default=False)
-    name       = models.CharField(max_length=100, blank=True, help_text='Nome del piano, es: "Piano proteico 2000kcal"')
-    week_start = models.DateField(null=True, blank=True, help_text='Lunedì della settimana — null per piani template')
-    created_at = models.DateTimeField(auto_now_add=True)
+    owner            = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='week_plans')
+    is_system        = models.BooleanField(default=False)
+    name             = models.CharField(max_length=100, blank=True, help_text='Nome del piano, es: "Piano proteico 2000kcal"')
+    week_start       = models.DateField(null=True, blank=True, help_text='Lunedì della settimana — null per piani template')
+    nutrition_target = models.ForeignKey(NutritionTarget, null=True, blank=True, on_delete=models.PROTECT, related_name='week_plans')
+    created_at       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         # unique_together rimosso: un piano sistema non ha owner né week_start fisso
@@ -228,7 +244,8 @@ class WeekPlan(models.Model):
     def __str__(self):
         if self.is_system:
             return f"[SYS] {self.name}"
-        return f"{self.owner.username} — settimana del {self.week_start}"
+        owner_label = self.owner.username if self.owner else '—'
+        return f"{owner_label} — settimana del {self.week_start}"
 
 
 class WeekDay(models.IntegerChoices):

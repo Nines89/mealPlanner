@@ -3,7 +3,7 @@ from .models import (
     Ingredient, Tag, SeasonEntry,
     Meal, MealIngredient,
     MealSlot, MealSlotDefault,
-    UserProfile, WeekPlan, WeekPlanSlot
+    UserProfile, NutritionTarget, WeekPlan, WeekPlanSlot
 )
 
 
@@ -83,10 +83,8 @@ class MealSlotAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display  = ('user', 'diet_style', 'target_kcal', 'target_protein', 'target_carbs', 'target_fat')
-    list_filter   = ('diet_style',)
+    list_display  = ('user', 'allergies')
     search_fields = ('user__username',)
-
 
 # ─────────────────────────────────────────
 # PIANO SETTIMANALE
@@ -100,7 +98,7 @@ class WeekPlanSlotInline(admin.TabularInline):
 
 @admin.register(WeekPlan)
 class WeekPlanAdmin(admin.ModelAdmin):
-    list_display  = ('__str__', 'owner', 'is_system', 'week_start', 'created_at')
+    list_display  = ('__str__', 'owner', 'is_system', 'week_start', 'nutrition_target', 'created_at')
     list_filter   = ('is_system',)
     ordering      = ('-created_at',)
     inlines       = [WeekPlanSlotInline]
@@ -110,3 +108,14 @@ class WeekPlanAdmin(admin.ModelAdmin):
 class WeekPlanSlotAdmin(admin.ModelAdmin):
     list_display  = ('week_plan', 'day', 'meal_slot', 'meal')
     list_filter   = ('day', 'meal_slot')
+
+
+# ─────────────────────────────────────────
+# TARGET NUTRIZIONALE
+# ─────────────────────────────────────────
+
+@admin.register(NutritionTarget)
+class NutritionTargetAdmin(admin.ModelAdmin):
+    list_display  = ('name', 'owner', 'is_system', 'target_kcal', 'diet_style')
+    list_filter   = ('is_system', 'diet_style')
+    search_fields = ('name', 'owner__username')
