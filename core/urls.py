@@ -6,4 +6,5 @@ app_name = 'core'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('register/', views.register, name='register'),
+    path('catalog-partial/', views.catalog_partial, name='catalog_partial'),
 ]

@@ -28,3 +28,11 @@ def register(request):
         form = UserCreationForm()
 
     return render(request, 'registration/register.html', {'form': form})
+
+@login_required
+def catalog_partial(request):
+    context = {
+        'ingredient_count': Ingredient.objects.count(),
+        'meal_count': Meal.objects.filter(is_system=True).count(),
+    }
+    return render(request, 'core/_catalog_section.html', context)

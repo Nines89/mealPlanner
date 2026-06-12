@@ -41,21 +41,7 @@
 
 <!-- Catalogo -->
 <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h2 class="text-lg font-semibold mb-4 text-gray-700">📦 Catalogo</h2>
-
-    <div class="grid grid-cols-2 gap-4">
-
-        <div class="flex items-center gap-3">
-            <span class="text-3xl font-bold text-emerald-600">{{ ingredient_count }}</span>
-            <span class="text-gray-500 text-sm">ingredienti<br>disponibili</span>
-        </div>
-
-        <div class="flex items-center gap-3">
-            <span class="text-3xl font-bold text-emerald-600">{{ meal_count }}</span>
-            <span class="text-gray-500 text-sm">pasti<br>di sistema</span>
-        </div>
-
-    </div>
+    {% include "core/_catalog_section.html" %}
 </section>
 
 {% endblock %}

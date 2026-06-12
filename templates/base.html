@@ -9,37 +9,67 @@
 
     <!-- Tailwind CSS (CDN Play — solo sviluppo) -->
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
 
     <!-- NAVBAR -->
     <nav class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="max-w-5xl mx-auto px-4 py-3">
+
+        <input type="checkbox" id="nav-toggle" class="peer hidden">
+
+        <div class="flex items-center justify-between">
 
             <a href="/" class="font-bold text-lg text-emerald-600">🥗 Meal Planner</a>
 
-            <div class="flex items-center gap-4 text-sm">
+            <!-- Link visibili solo da tablet in su -->
+            <div class="hidden md:flex items-center gap-4 text-sm">
                 {% if user.is_authenticated %}
-                    <span class="text-gray-500 hidden sm:inline">{{ user.username }}</span>
-                    <a href="{% url 'admin:index' %}"
-                       class="text-gray-600 hover:text-gray-900">Admin</a>
-                    <form method="post" action="{% url 'logout' %}" style="display:inline">
+                    <span class="text-gray-500">{{ user.username }}</span>
+                    <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
+                    <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
-                        <button type="submit"
-                                class="text-red-500 hover:text-red-700">Esci</button>
+                        <button type="submit" class="text-red-500 hover:text-red-700">Esci</button>
                     </form>
                 {% else %}
-                    <a href="{% url 'login' %}"
-                       class="text-gray-600 hover:text-gray-900">Accedi</a>
+                    <a href="{% url 'login' %}" class="text-gray-600 hover:text-gray-900">Accedi</a>
                     <a href="{% url 'core:register' %}"
                        class="bg-emerald-500 text-white px-3 py-1.5 rounded-md hover:bg-emerald-600">
                         Registrati
                     </a>
                 {% endif %}
             </div>
+
+            <!-- Hamburger: visibile solo sotto md -->
+            <label for="nav-toggle" class="md:hidden cursor-pointer p-2">
+                <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </label>
+
         </div>
+
+        <!-- Menu mobile a comparsa -->
+        <div class="peer-checked:flex hidden md:hidden flex-col gap-3 mt-3 pb-2 text-sm">
+            {% if user.is_authenticated %}
+                <span class="text-gray-500">👤 {{ user.username }}</span>
+                <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-500 hover:text-red-700 text-left">Esci</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" class="text-gray-600 hover:text-gray-900">Accedi</a>
+                <a href="{% url 'core:register' %}"
+                   class="bg-emerald-500 text-white px-3 py-1.5 rounded-md text-center hover:bg-emerald-600">
+                    Registrati
+                </a>
+            {% endif %}
+        </div>
+    </div>
     </nav>
 
     <!-- CONTENUTO PRINCIPALE -->
