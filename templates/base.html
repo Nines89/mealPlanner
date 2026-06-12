@@ -4,25 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Meal Planner{% endblock %}</title>
+
+    {% load static %}
+
+    <!-- Tailwind CSS (CDN Play — solo sviluppo) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    {% block extra_head %}{% endblock %}
 </head>
-<body>
-    <nav>
-        <strong>Meal Planner</strong>
-        {% if user.is_authenticated %}
-            <span>{{ user.username }}</span>
-            <a href="{% url 'admin:index' %}">Admin</a>
-            <form method="post" action="{% url 'logout' %}" style="display:inline">
-                {% csrf_token %}
-                <button type="submit">Esci</button>
-            </form>
-        {% else %}
-            <a href="{% url 'login' %}">Accedi</a>
-            <a href="{% url 'core:register' %}">Registrati</a>
-        {% endif %}
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+    <!-- NAVBAR -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+
+            <a href="/" class="font-bold text-lg text-emerald-600">🥗 Meal Planner</a>
+
+            <div class="flex items-center gap-4 text-sm">
+                {% if user.is_authenticated %}
+                    <span class="text-gray-500 hidden sm:inline">{{ user.username }}</span>
+                    <a href="{% url 'admin:index' %}"
+                       class="text-gray-600 hover:text-gray-900">Admin</a>
+                    <form method="post" action="{% url 'logout' %}" style="display:inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="text-red-500 hover:text-red-700">Esci</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}"
+                       class="text-gray-600 hover:text-gray-900">Accedi</a>
+                    <a href="{% url 'core:register' %}"
+                       class="bg-emerald-500 text-white px-3 py-1.5 rounded-md hover:bg-emerald-600">
+                        Registrati
+                    </a>
+                {% endif %}
+            </div>
+        </div>
     </nav>
 
-    <main>
+    <!-- CONTENUTO PRINCIPALE -->
+    <main class="max-w-5xl mx-auto px-4 py-8">
+
+        <!-- Messaggi Django (es. login riuscito) -->
+        {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                    <div class="px-4 py-3 rounded-md text-sm
+                        {% if message.tags == 'error' %}bg-red-100 text-red-700
+                        {% elif message.tags == 'success' %}bg-green-100 text-green-700
+                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         {% block content %}{% endblock %}
     </main>
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
