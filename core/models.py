@@ -103,6 +103,55 @@ class Tag(models.Model):
 
 
 # ─────────────────────────────────────────
+# DISTRIBUZIONE TARGET PER SLOT PASTO
+# ─────────────────────────────────────────
+
+class MealSlotTarget(models.Model):
+    """
+    Distribuzione del NutritionTarget per slot pasto.
+    Esiste solo per target personali (nutrition_target.owner != None).
+    """
+    nutrition_target = models.ForeignKey(
+        NutritionTarget,
+        on_delete=models.CASCADE,
+        related_name='slot_targets'
+    )
+    meal_slot = models.ForeignKey(
+        MealSlot,
+        on_delete=models.CASCADE,
+        related_name='slot_targets'
+    )
+
+    percentage = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        help_text='% del totale giornaliero (0-100)'
+    )
+
+    kcal    = models.PositiveIntegerField(null=True, blank=True)
+    protein = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
+    carbs   = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
+    fat     = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
+
+    class Meta:
+        unique_together = [('nutrition_target', 'meal_slot')]
+
+    def __str__(self):
+        return f"{self.nutrition_target.name} — {self.meal_slot.name}"
+
+    def calculate_from_percentage(self):
+        """Popola i valori assoluti dalla percentuale e dal NutritionTarget padre."""
+        if self.percentage is None:
+            return
+        ratio = self.percentage / 100
+        nt = self.nutrition_target
+        self.kcal    = round(nt.target_kcal    * ratio)
+        self.protein = round(nt.target_protein * ratio)
+        self.carbs   = round(nt.target_carbs   * ratio)
+        self.fat     = round(nt.target_fat     * ratio)
+
+
+# ─────────────────────────────────────────
 # STAGIONALITÀ
 # ─────────────────────────────────────────
 

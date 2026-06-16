@@ -3,7 +3,7 @@ from .models import (
     Ingredient, Tag, SeasonEntry,
     Meal, MealIngredient,
     MealSlot, MealSlotDefault,
-    UserProfile, NutritionTarget, WeekPlan, WeekPlanSlot
+    UserProfile, NutritionTarget, MealSlotTarget, WeekPlan, WeekPlanSlot
 )
 
 
@@ -114,8 +114,22 @@ class WeekPlanSlotAdmin(admin.ModelAdmin):
 # TARGET NUTRIZIONALE
 # ─────────────────────────────────────────
 
+class MealSlotTargetInline(admin.TabularInline):
+    model   = MealSlotTarget
+    extra   = 0
+    fields  = ('meal_slot', 'percentage', 'kcal', 'protein', 'carbs', 'fat')
+
+
 @admin.register(NutritionTarget)
 class NutritionTargetAdmin(admin.ModelAdmin):
     list_display  = ('name', 'owner', 'is_system', 'target_kcal', 'diet_style')
     list_filter   = ('is_system', 'diet_style')
     search_fields = ('name', 'owner__username')
+    inlines       = [MealSlotTargetInline]
+
+
+@admin.register(MealSlotTarget)
+class MealSlotTargetAdmin(admin.ModelAdmin):
+    list_display  = ('nutrition_target', 'meal_slot', 'percentage', 'kcal', 'protein', 'carbs', 'fat')
+    list_filter   = ('nutrition_target',)
+    search_fields = ('nutrition_target__name', 'meal_slot__name')
