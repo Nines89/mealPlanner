@@ -76,6 +76,7 @@ class NutritionTarget(models.Model):
         choices=DietStyle.choices,
         default=DietStyle.NONE
     )
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
 
     def __str__(self):
         prefix = '[SYS] ' if self.is_system else ''
@@ -138,6 +139,31 @@ class MealSlotTarget(models.Model):
 
     def __str__(self):
         return f"{self.nutrition_target.name} — {self.meal_slot.name}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.nutrition_target_id is None or self.meal_slot_id is None:
+            return
+        nt = self.nutrition_target
+        ms = self.meal_slot
+        if nt.owner_id is None:
+            raise ValidationError(
+                {
+                    'nutrition_target': (
+                        'La distribuzione per slot si applica solo a target personali '
+                        '(con utente proprietario).'
+                    ),
+                }
+            )
+        if ms.user_id != nt.owner_id:
+            raise ValidationError(
+                {
+                    'meal_slot': (
+                        'Lo slot pasto deve appartenere allo stesso utente del target nutrizionale.'
+                    ),
+                }
+            )
 
     def calculate_from_percentage(self):
         """Popola i valori assoluti dalla percentuale e dal NutritionTarget padre."""
@@ -287,8 +313,13 @@ class WeekPlan(models.Model):
     created_at       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # unique_together rimosso: un piano sistema non ha owner né week_start fisso
-        pass
+        constraints = [
+            models.UniqueConstraint(
+                fields=('owner', 'week_start'),
+                condition=models.Q(owner__isnull=False, week_start__isnull=False),
+                name='core_weekplan_owner_week_start_uniq',
+            ),
+        ]
 
     def __str__(self):
         if self.is_system:

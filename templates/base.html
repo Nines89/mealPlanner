@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#059669">
     <title>{% block title %}Meal Planner{% endblock %}</title>
 
     {% load static %}
+    <link rel="manifest" href="{% url 'pwa_manifest' %}">
+    <link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
 
     <!-- Tailwind CSS (CDN Play — solo sviluppo) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -93,5 +96,15 @@
     </main>
 
     {% block extra_js %}{% endblock %}
+    <script>
+      /* Registrazione Service Worker: solo stesso origine, dopo load (non blocca first paint). */
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('{% url "pwa_service_worker" %}').catch(function (err) {
+            console.warn('Service worker non registrato:', err);
+          });
+        });
+      }
+    </script>
 </body>
 </html>

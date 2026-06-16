@@ -37,7 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core'
+    'rest_framework',
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -120,3 +121,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'     # destinazione per collectstatic (pro
 
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
+
+# Django REST Framework (endpoint minimi; espandere con ViewSet/versioning se serve)
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}

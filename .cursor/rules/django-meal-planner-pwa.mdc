@@ -1,0 +1,105 @@
+---
+description: Django + DRF + HTMX + Tailwind + PWA — dominio Meal Planner, layout mobile/desktop, vincoli e stato avanzamento
+alwaysApply: true
+---
+
+# Progetto — Django Web App + PWA (Meal Planner)
+
+## Obiettivo
+
+App web Django usabile da **desktop e mobile (Android)** senza funzionalità native Android. Le differenze tra contesti sono solo **comodità d’uso** (layout, navigazione, priorità contenuti). Approccio **didattico**: spiegare e motivare le scelte, con esempi concreti quando si introduce una novità.
+
+## Stack
+
+| Layer | Tecnologia | Ruolo |
+| --- | --- | --- |
+| Backend | Django | Views, ORM, template engine |
+| API | Django REST Framework | REST, serializer, auth API |
+| Interattività | HTMX | UI dinamica senza framework JS pesante |
+| Stile | Tailwind CSS | Responsive, breakpoint md+ vs mobile |
+| Mobile | PWA | Installabilità, cache, comportamento offline |
+
+Flusso: Browser/PWA (Tailwind + HTMX) → Django (views, ORM, DRF, templates) → DB (SQLite dev → PostgreSQL prod).
+
+## Mobile vs desktop
+
+1. **Tailwind** — differenze solo visive (`hidden md:block`, `flex md:hidden`, ecc.).
+2. **Django** — `mobile` in context solo se **contenuto o flusso** cambiano in modo sostanziale (es. helper `is_mobile(request)` via User-Agent; accettare i limiti dello sniffing).
+
+**Linea guida:** Tailwind per layout; server-side solo per divergenze di contenuto/flusso.
+
+## PWA
+
+- `manifest.json`, `service worker`, servizio su **HTTPS** in produzione.
+- Static files Django o libreria tipo `django-pwa`.
+
+## Vincoli tecnici
+
+- Python **3.11+**, Django **6.x** (allineato a `requirements.txt`).
+- Auth: `django.contrib.auth`.
+- **Nessuna** feature nativa Android (GPS, camera, BLE, push native).
+- Browser moderni (Chrome/Firefox); IE non supportato.
+
+## Dominio — Meal Planner
+
+**Core:** piano pasti settimanale; ingredienti con kcal/proteine/carbo/grassi; lista spesa da piano; tracking nutrizionale.
+
+**Utenti:** registrazione; calorie + macro target manuali; allergie/esclusioni + stile (vegano, vegetariano, ecc.); struttura giornata configurabile (colazione, pranzo, snack, ecc.).
+
+**Pasto:** non “ricette”: insieme di **ingredienti con quantità** scalate sul piano nutrizionale dell’utente.
+
+**Tre modalità di pianificazione**
+
+| Modalità | Input | Comportamento |
+| --- | --- | --- |
+| Automatica | nessuno | sceglie ingredienti rispettando macro target |
+| Semi-auto | sceglie proteina | suggerisce verdura casuale dal macrogruppo |
+| Semi-manuale | proteina + verdura (macrogruppo suggerito) | calcola quantità |
+
+Suggerimenti: **solo regole/algoritmi fissi** — nessun AI/ML.
+
+## Struttura progetto (target)
+
+`manage.py`, package settings/urls/wsgi, `apps/core/` (models, views, urls, `templates/core/`), `static/` (css, js, manifest), `templates/base.html`, `requirements.txt`.
+
+## Approccio didattico (quando spieghi o implementi)
+
+1. Concetto → 2. Teoria (meccanismo Django/HTMX/Tailwind/DRF) → 3. Pratica → 4. Verifica → 5. Approfondimento (doc ufficiale / varianti).
+
+Ordine didattico di riferimento: venv → progetto → app → model → view → template → URL → static → Tailwind → HTMX → DRF → PWA.
+
+## Convenzioni già in uso nel repo
+
+- Template parziali: prefisso `_` (solo `include`, no `extends`), es. `core/_catalog_section.html`.
+- HTMX: es. `hx-get`, `hx-target`, `hx-swap="outerHTML"` per swap di sezioni.
+- Navbar mobile: pattern **checkbox + `peer`** Tailwind — **input.peer e il target devono essere fratelli diretti nel DOM**.
+- Tailwind/HTMX da CDN in `base.html` se è lo stato attuale del progetto; non introdurre build pipeline senza richiesta esplicita.
+
+---
+
+## Stato attuale (aggiornare a ogni sessione)
+
+> Prima di una nuova chat, aggiorna **Fase corrente**, le checkbox e **Note sessione**.
+
+### Fase corrente
+
+PWA base (manifest + SW + icone) — prossimo: **test installazione reale su Android**, poi eventuale cache/offline mirata o estensione DRF.
+
+### Checklist sintetica
+
+- Setup Django: fatto.
+- Base Django (app core, modelli, admin, view, template, URL): fatto.
+- Frontend (static, Tailwind, layout responsive, HTMX): fatto.
+- API (DRF: serializer + endpoint read-only ingredienti, session auth): parziale.
+- PWA (manifest + service worker + icone; test install Chrome Android da fare sul dispositivo): parziale.
+
+### Decisione aperta
+
+Affinare **offline** (pagina fallback, strategia cache HTML solo pubblico) oppure **estendere DRF** (token, altri endpoint).
+
+### Note operative
+
+- `base.html` (ex `basic.html`); Tailwind via CDN Play se applicabile.
+- Contesto catalogo: `get_catalog_stats_context()` condiviso tra dashboard e `catalog_partial` (HTMX).
+- PWA: `GET /manifest.webmanifest`, `GET /sw.js` (viste `core/pwa_views.py`); icone in `static/pwa/`; rigenerazione icone: `py scripts/gen_pwa_icons.py`.
+- Fixture ingredienti di sistema: **9** voci — controllare admin prima di aggiungere dati di test per evitare doppioni.

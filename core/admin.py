@@ -122,9 +122,10 @@ class MealSlotTargetInline(admin.TabularInline):
 
 @admin.register(NutritionTarget)
 class NutritionTargetAdmin(admin.ModelAdmin):
-    list_display  = ('name', 'owner', 'is_system', 'target_kcal', 'diet_style')
+    list_display  = ('name', 'owner', 'is_system', 'target_kcal', 'diet_style', 'created_at')
     list_filter   = ('is_system', 'diet_style')
     search_fields = ('name', 'owner__username')
+    readonly_fields = ('created_at',)
     inlines       = [MealSlotTargetInline]
 
 
