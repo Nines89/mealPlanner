@@ -1,9 +1,11 @@
 from django.contrib import admin
 from .models import (
     Ingredient, Tag, SeasonEntry,
-    Meal, MealIngredient,
+    Meal, MealIngredient, MealIngredientMemberPortion,
     MealSlot, MealSlotDefault,
-    UserProfile, NutritionTarget, MealSlotTarget, WeekPlan, WeekPlanSlot
+    Household, HouseholdMember,
+    DayProfile, WeekPlanDayKind,
+    UserProfile, NutritionTarget, MealSlotTarget, WeekPlan, WeekPlanSlot, WeekPlanSlotAttendance,
 )
 
 
@@ -45,6 +47,30 @@ class MealIngredientInline(admin.TabularInline):
     fields = ('ingredient', 'grams')
 
 
+class MealIngredientMemberPortionInline(admin.TabularInline):
+    model = MealIngredientMemberPortion
+    extra = 0
+    verbose_name = 'Porzione membro'
+    verbose_name_plural = 'Porzioni per commensale'
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset_class = super().get_formset(request, obj, **kwargs)
+        meal_ingredient = obj
+
+        class PortionForm(formset_class.form):
+            def __init__(self, *args, **form_kw):
+                super().__init__(*args, **form_kw)
+                if meal_ingredient and getattr(meal_ingredient.meal, 'owner_id', None):
+                    self.fields['household_member'].queryset = HouseholdMember.objects.filter(
+                        household__owner=meal_ingredient.meal.owner
+                    ).order_by('sort_order', 'id')
+                else:
+                    self.fields['household_member'].queryset = HouseholdMember.objects.none()
+
+        formset_class.form = PortionForm
+        return formset_class
+
+
 @admin.register(Meal)
 class MealAdmin(admin.ModelAdmin):
     list_display  = ('__str__', 'owner', 'is_system')
@@ -55,9 +81,10 @@ class MealAdmin(admin.ModelAdmin):
 
 @admin.register(MealIngredient)
 class MealIngredientAdmin(admin.ModelAdmin):
-    list_display  = ('meal', 'ingredient', 'grams')
-    list_filter   = ('meal',)
+    list_display = ('meal', 'ingredient', 'grams')
+    list_filter = ('meal',)
     search_fields = ('meal__name', 'ingredient__name')
+    inlines = [MealIngredientMemberPortionInline]
 
 
 # ─────────────────────────────────────────
@@ -86,9 +113,77 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display  = ('user', 'allergies')
     search_fields = ('user__username',)
 
+
+# ─────────────────────────────────────────
+# NUCLEO FAMIGLIA
+# ─────────────────────────────────────────
+
+class HouseholdMemberInline(admin.TabularInline):
+    model = HouseholdMember
+    extra = 0
+    fields = ('display_name', 'linked_user', 'sort_order', 'nutrition_target')
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset_class = super().get_formset(request, obj, **kwargs)
+        household = obj
+        owner = household.owner if household else None
+
+        class MemberForm(formset_class.form):
+            def __init__(self, *args, **form_kw):
+                super().__init__(*args, **form_kw)
+                if owner:
+                    self.fields['nutrition_target'].queryset = NutritionTarget.objects.filter(
+                        owner=owner, is_system=False
+                    ).order_by('-created_at')
+                else:
+                    self.fields['nutrition_target'].queryset = NutritionTarget.objects.none()
+
+        formset_class.form = MemberForm
+        return formset_class
+
+
+@admin.register(Household)
+class HouseholdAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'owner', 'created_at')
+    search_fields = ('name', 'owner__username')
+    readonly_fields = ('created_at',)
+    inlines = [HouseholdMemberInline]
+
+
+@admin.register(DayProfile)
+class DayProfileAdmin(admin.ModelAdmin):
+    list_display = ('name', 'owner', 'order')
+    list_filter = ('owner',)
+    search_fields = ('name', 'owner__username')
+    ordering = ('owner', 'order', 'id')
+
+
 # ─────────────────────────────────────────
 # PIANO SETTIMANALE
 # ─────────────────────────────────────────
+
+class WeekPlanDayKindInline(admin.TabularInline):
+    model = WeekPlanDayKind
+    extra = 0
+    fields = ('day', 'day_profile')
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset_class = super().get_formset(request, obj, **kwargs)
+        owner = obj.owner if obj else None
+
+        class DayKindForm(formset_class.form):
+            def __init__(self, *args, **form_kw):
+                super().__init__(*args, **form_kw)
+                if owner:
+                    self.fields['day_profile'].queryset = DayProfile.objects.filter(owner=owner).order_by(
+                        'order', 'id'
+                    )
+                else:
+                    self.fields['day_profile'].queryset = DayProfile.objects.none()
+
+        formset_class.form = DayKindForm
+        return formset_class
+
 
 class WeekPlanSlotInline(admin.TabularInline):
     model  = WeekPlanSlot
@@ -101,13 +196,39 @@ class WeekPlanAdmin(admin.ModelAdmin):
     list_display  = ('__str__', 'owner', 'is_system', 'week_start', 'nutrition_target', 'created_at')
     list_filter   = ('is_system',)
     ordering      = ('-created_at',)
-    inlines       = [WeekPlanSlotInline]
+    inlines       = [WeekPlanDayKindInline, WeekPlanSlotInline]
+
+
+class WeekPlanSlotAttendanceInline(admin.TabularInline):
+    model = WeekPlanSlotAttendance
+    extra = 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset_class = super().get_formset(request, obj, **kwargs)
+        slot = obj
+
+        class AttendanceForm(formset_class.form):
+            def __init__(self, *args, **form_kw):
+                super().__init__(*args, **form_kw)
+                owner = None
+                if slot and getattr(slot, 'week_plan_id', None):
+                    owner = slot.week_plan.owner
+                if owner:
+                    self.fields['household_member'].queryset = HouseholdMember.objects.filter(
+                        household__owner=owner
+                    ).order_by('sort_order', 'id')
+                else:
+                    self.fields['household_member'].queryset = HouseholdMember.objects.none()
+
+        formset_class.form = AttendanceForm
+        return formset_class
 
 
 @admin.register(WeekPlanSlot)
 class WeekPlanSlotAdmin(admin.ModelAdmin):
-    list_display  = ('week_plan', 'day', 'meal_slot', 'meal')
-    list_filter   = ('day', 'meal_slot')
+    list_display = ('week_plan', 'day', 'meal_slot', 'meal')
+    list_filter = ('day', 'meal_slot')
+    inlines = [WeekPlanSlotAttendanceInline]
 
 
 # ─────────────────────────────────────────
@@ -122,11 +243,20 @@ class MealSlotTargetInline(admin.TabularInline):
 
 @admin.register(NutritionTarget)
 class NutritionTargetAdmin(admin.ModelAdmin):
-    list_display  = ('name', 'owner', 'is_system', 'target_kcal', 'diet_style', 'created_at')
-    list_filter   = ('is_system', 'diet_style')
-    search_fields = ('name', 'owner__username')
+    list_display = ('name', 'owner', 'linked_members_display', 'is_system', 'target_kcal', 'diet_style', 'created_at')
+    list_filter = ('is_system', 'diet_style')
+    search_fields = ('name', 'owner__username', 'linked_household_members__display_name')
     readonly_fields = ('created_at',)
-    inlines       = [MealSlotTargetInline]
+    inlines = [MealSlotTargetInline]
+
+    @admin.display(description='Commensali')
+    def linked_members_display(self, obj):
+        names = list(
+            obj.linked_household_members.order_by('sort_order', 'id').values_list('display_name', flat=True)[:8]
+        )
+        if not names:
+            return '—'
+        return ', '.join(names)
 
 
 @admin.register(MealSlotTarget)

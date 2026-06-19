@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#059669">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>{% block title %}Meal Planner{% endblock %}</title>
 
     {% load static %}
@@ -31,6 +33,10 @@
             <div class="hidden md:flex items-center gap-4 text-sm">
                 {% if user.is_authenticated %}
                     <span class="text-gray-500">{{ user.username }}</span>
+                    <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Piano settimana</a>
+                    <a href="{% url 'core:nutrition_target_create' %}" class="text-gray-700 hover:text-gray-900 font-medium">Nuovo target</a>
+                    <a href="{% url 'core:day_profiles' %}" class="text-gray-700 hover:text-gray-900 font-medium">Tipi giorno</a>
+                    <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Famiglia</a>
                     <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
@@ -59,6 +65,10 @@
         <div class="peer-checked:flex hidden md:hidden flex-col gap-3 mt-3 pb-2 text-sm">
             {% if user.is_authenticated %}
                 <span class="text-gray-500">👤 {{ user.username }}</span>
+                <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Piano settimana</a>
+                <a href="{% url 'core:nutrition_target_create' %}" class="text-gray-700 hover:text-gray-900 font-medium">Nuovo target</a>
+                <a href="{% url 'core:day_profiles' %}" class="text-gray-700 hover:text-gray-900 font-medium">Tipi giorno</a>
+                <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Famiglia</a>
                 <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
@@ -100,7 +110,7 @@
       /* Registrazione Service Worker: solo stesso origine, dopo load (non blocca first paint). */
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('{% url "pwa_service_worker" %}').catch(function (err) {
+          navigator.serviceWorker.register('{% url "pwa_service_worker" %}', { scope: '/' }).catch(function (err) {
             console.warn('Service worker non registrato:', err);
           });
         });

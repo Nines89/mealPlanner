@@ -25,6 +25,8 @@ SECRET_KEY = 'django-insecure--^#$em&dh0cnuv-ys_7&6%nbp1txi5%o2^=z6n0g%o$-(4kqqd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# Host header consentiti. In DEBUG, ``*`` = qualsiasi Host (es. ``192.168.1.7`` da altri PC / telefono).
+# In produzione: DEBUG=False e elenco esplicito di domini (mai ``*``).
 ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost']
 
 
