@@ -44,9 +44,16 @@ Flusso: Browser/PWA (Tailwind + HTMX) → Django (views, ORM, DRF, templates) �
 
 **Core:** piano pasti settimanale; ingredienti con kcal/proteine/carbo/grassi; lista spesa da piano; tracking nutrizionale.
 
-**Utenti:** registrazione; calorie + macro target manuali; allergie/esclusioni + stile (vegano, vegetariano, ecc.); struttura giornata configurabile (colazione, pranzo, snack, ecc.).
+**Utenti:** registrazione; calorie + macro target manuali (`NutritionTarget` del planner; ogni `HouseholdMember` ha opzionale `nutrition_target`, condivisibile tra più commensali); allergie/esclusioni + stile (vegano, vegetariano, ecc.); struttura giornata configurabile (colazione, pranzo, snack, ecc.).
 
 **Pasto:** non “ricette”: insieme di **ingredienti con quantità** scalate sul piano nutrizionale dell’utente.
+
+**Famiglia / stesso piatto — standard adottato (fino a revisione esplicita):**
+
+- Un solo **`Meal`** (stessa lista ingredienti) per i commensali che condividono quel pasto.
+- **Porzioni diverse per persona** sullo stesso ingrediente: **grammi espliciti per persona** *oppure* **grammi “base”** (riferimento comune sul pasto) moltiplicati da un **fattore per membro** (equivalente se i fattori sono definiti). I due approcci sono ammessi; scegline uno per implementazione e resta coerente nel codice.
+- **Presenza** allo slot (chi partecipa a quel pasto) è un concetto **separato** da modellare quando si introduce nucleo famiglia / invitati; nei calcoli (macro, lista spesa) contano solo i **presenti** con le loro porzioni.
+- *Stato codice:* oggi `MealIngredient` ha un solo `grams` (porzione unica). Migrare a questo standard è lavoro di modello + UI previsto; non forzare famiglia nel DB prima di avere slot + assegnazione pasto solidi.
 
 **Tre modalità di pianificazione**
 
@@ -75,15 +82,47 @@ Ordine didattico di riferimento: venv → progetto → app → model → view �
 - Navbar mobile: pattern **checkbox + `peer`** Tailwind — **input.peer e il target devono essere fratelli diretti nel DOM**.
 - Tailwind/HTMX da CDN in `base.html` se è lo stato attuale del progetto; non introdurre build pipeline senza richiesta esplicita.
 
+## Piano d'azione a fasi (roadmap)
+
+Struttura fissa per **priorità e prossimi passi** (anche in nuove chat): proporre lavoro nella fase coerente con **Fase corrente** sotto; quando si chiude un blocco, aggiornare quella sezione e le checkbox.
+
+| Fase | Focus | Esiti tipici |
+| --- | --- | --- |
+| **1 — PWA** | Installabilità e offline di base | Test install Chrome Android; smoke offline; scelta strategia cache (solo statici/manifest/SW vs fallback HTML pubblico) |
+| **2 — Settings / deploy** | Ambiente sicuro e ripetibile | `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, statici; eventuale separazione dev/prod |
+| **3 — Prodotto dominio** | Valore core meal planner | Settimana → pasti (ingredienti + quantità) → totali nutrizionali; lista spesa; preferenze utente (target, esclusioni) con **solo regole/algoritmi fissi** |
+| **4 — API DRF** | Integrazioni se servono | Endpoint oltre il read-only attuale; token o client esterni **solo** con caso d’uso chiaro |
+
+**Ordine di priorità di default:** Fase 1 → Fase 3 (core prodotto) → Fase 2 quando serve esposizione in rete → Fase 4 su richiesta esplicita.
+
 ---
 
 ## Stato attuale (aggiornare a ogni sessione)
 
-> Prima di una nuova chat, aggiorna **Fase corrente**, le checkbox e **Note sessione**.
+> Prima di una nuova chat, aggiorna **Fase corrente**, le checkbox, **Elementi pendenti**, **Prossimi passi** e **Note sessione**.
+
+### Ultimo blocco utile (sessione recente)
+
+- **Target condivisi tra commensali:** collegamento su `HouseholdMember.nutrition_target` (FK opzionale); più membri possono usare lo stesso `NutritionTarget`. Rimossa la FK `household_member` da `NutritionTarget`; migrazione dati `core/migrations/0010_member_nutrition_target_fk.py`.
+
+### Prossimi passi (ordine suggerito dopo pausa)
+
+1. **Smoke manuale** (prima di nuove feature): dashboard (assegnazione target, stesso target su due commensali, «nessuno»), pagina `/target-nuovo/`, piano `/piano-settimana/` (default target / coerenza).
+2. **Fase 1 — PWA su dispositivo reale:** installazione + smoke offline in Chrome Android; rete raggiungibile e HTTPS/tunnel se serve. Procedura: `docs/pwa-fase-1-checklist.md`. Fino ad allora la Fase 1 resta non chiusa al 100%.
+3. **Fase 3 — Totali nutrizionali:** sul piano settimanale (giorno e/o settimana) usando target per membro, presenza agli slot e porzioni ingrediente (solo presenti con porzioni valide).
+4. **Fase 3 — Lista della spesa:** aggregazione ingredienti e quantità derivata dal piano (coerente con il punto precedente).
+5. **Fase 3 — Modalità di pianificazione:** automatica / semi-auto / semi-manuale (solo regole fisse, niente ML), dopo che totali e dati pasto sono affidabili.
+6. **Opzionali:** affinare **offline** nello SW (fallback, cache HTML pubblico); **DRF** oltre il read-only attuale solo se emerge un integrazione concreta.
+
+**Versionamento:** in commit evitare `db.sqlite3` salvo scelta esplicita del team; preferire codice, migrazioni, template, doc.
+
+### Elementi pendenti (⚠ non perdere di vista)
+
+- **PWA — prova reale su cellulare (Chrome Android, install + smoke offline):** **PENDENTE.** Su PC il sito risponde (es. `runserver 0.0.0.0:8000`), ma dal telefono può comparire «impossibile raggiungere il sito» (IP/host sbagliato, firewall Windows, Wi‑Fi con *client isolation*, telefono su dati mentre il PC è su altra rete, ecc.). Da completare quando possibile; procedura e tunnel HTTPS: `docs/pwa-fase-1-checklist.md`. Fino ad allora la **Fase 1** non va considerata chiusa al 100%.
 
 ### Fase corrente
 
-PWA base (manifest + SW + icone) — prossimo: **test installazione reale su Android**, poi eventuale cache/offline mirata o estensione DRF.
+**Pausa implementativa;** alla ripresa seguire **Prossimi passi** sopra. Priorità di default: smoke rapido → chiusura Fase 1 su Android (in parallelo se possibile) → Fase 3 (totali → lista spesa → modalità pianificazione).
 
 ### Checklist sintetica
 
@@ -91,15 +130,16 @@ PWA base (manifest + SW + icone) — prossimo: **test installazione reale su And
 - Base Django (app core, modelli, admin, view, template, URL): fatto.
 - Frontend (static, Tailwind, layout responsive, HTMX): fatto.
 - API (DRF: serializer + endpoint read-only ingredienti, session auth): parziale.
-- PWA (manifest + service worker + icone; test install Chrome Android da fare sul dispositivo): parziale.
+- PWA (manifest + SW + icone + precache; doc `docs/pwa-fase-1-checklist.md`): **su desktop ok**; **PENDENTE** verifica install/smoke **su Android reale** (rete raggiungibile + HTTPS/tunnel se serve).
+- Target per commensale / condivisibile: fatto (FK su `HouseholdMember`, migrazione `0010`).
 
 ### Decisione aperta
 
-Affinare **offline** (pagina fallback, strategia cache HTML solo pubblico) oppure **estendere DRF** (token, altri endpoint).
+Nella **Fase 1**: quanto affinare **offline** (fallback, cache HTML solo pubblico). **Fase 4** (DRF: token, altri endpoint) solo con integrazione concreta da soddisfare.
 
 ### Note operative
 
 - `base.html` (ex `basic.html`); Tailwind via CDN Play se applicabile.
 - Contesto catalogo: `get_catalog_stats_context()` condiviso tra dashboard e `catalog_partial` (HTMX).
-- PWA: `GET /manifest.webmanifest`, `GET /sw.js` (viste `core/pwa_views.py`); icone in `static/pwa/`; rigenerazione icone: `py scripts/gen_pwa_icons.py`.
-- Fixture ingredienti di sistema: **9** voci — controllare admin prima di aggiungere dati di test per evitare doppioni.
+- PWA: `GET /manifest.webmanifest`, `GET /sw.js` (viste `core/pwa_views.py`); icone in `static/pwa/`; rigenerazione icone: `py scripts/gen_pwa_icons.py`. **Checklist Fase 1 (install Android, offline, cache):** `docs/pwa-fase-1-checklist.md`.
+- Nucleo famiglia / porzioni / **tipi giorno**: modelli `Household`, `HouseholdMember`, `MealIngredientMemberPortion`, `WeekPlanSlotAttendance`, `DayProfile`, `WeekPlanDayKind`; pagine `/famiglia/`, `/piano-settimana/` (tipi per colonna + presenza), `/tipi-giorno/`, `/target-nuovo/`; dashboard. **Design macro per tipo giorno:** `docs/tipi-giorno-e-nutrizione.md`. Porzioni ingrediente anche da admin su **Meal ingredient**.

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Piano settimanale — Meal Planner{% endblock %}
+
+{% block content %}
+
+<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Piano settimanale</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            Settimana dal <span class="font-medium text-gray-700">{{ week_start|date:"l j F Y" }}</span>
+        </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 shrink-0">
+        <a href="{% url 'core:household' %}" class="text-sm text-emerald-600 hover:text-emerald-800 font-medium">
+            Nucleo familiare
+        </a>
+        <a href="{% url 'core:dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900 font-medium">
+            ← Dashboard
+        </a>
+    </div>
+</div>
+
+{% if week_plan.nutrition_target %}
+<p class="text-sm text-gray-600 mb-4">
+    Target collegato: <span class="font-medium">{{ week_plan.nutrition_target.name }}</span>
+    ({{ week_plan.nutrition_target.target_kcal }} kcal)
+</p>
+{% else %}
+<p class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-4">
+    Nessun target nutrizionale collegato a questo piano. Puoi configurarne uno dalla dashboard o dall’admin.
+</p>
+{% endif %}
+
+{% if not meal_slots %}
+<p class="text-gray-600">Non hai slot pasto configurati. Contatta l’amministratore o ricrea il profilo.</p>
+{% else %}
+{% if day_profiles %}
+<div class="mb-4 rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 to-white p-4 shadow-sm">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+        <div>
+            <h2 class="text-sm font-semibold text-emerald-900">Tipo di giorno per colonna</h2>
+            <p class="text-xs text-emerald-800/80 mt-0.5">Es. allenamento vs riposo — base per regole future (target o pasti diversi).</p>
+        </div>
+        <a href="{% url 'core:day_profiles' %}" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 shrink-0">
+            Gestisci tipi →
+        </a>
+    </div>
+    <form method="post" class="flex flex-col gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="day_kinds" />
+        <div class="flex flex-wrap gap-2 items-end">
+            {% for col in day_kind_columns %}
+            <div class="min-w-[6.5rem] flex-1">
+                <label class="block text-[10px] font-medium uppercase tracking-wide text-emerald-900/70 mb-1">{{ col.label }}</label>
+                <select name="day_kind_{{ col.day }}"
+                        class="w-full rounded-lg border border-emerald-200/80 bg-white px-2 py-1.5 text-xs text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
+                    <option value="">—</option>
+                    {% for p in day_profiles %}
+                    <option value="{{ p.id }}" {% if col.current_profile_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endfor %}
+            <button type="submit" class="rounded-lg bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700 shrink-0">
+                Salva
+            </button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th scope="col"
+                        class="sticky left-0 z-10 bg-gray-50 px-3 py-3 font-semibold text-gray-700 border-r border-gray-200 whitespace-nowrap">
+                        Slot
+                    </th>
+                    {% for day, label in week_day_headers %}
+                    <th scope="col" class="px-3 py-3 font-semibold text-gray-700 text-center min-w-[7.5rem]">
+                        {{ label }}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in grid_rows %}
+                <tr class="hover:bg-gray-50/80">
+                    <th scope="row"
+                        class="sticky left-0 z-10 bg-white px-3 py-3 font-medium text-gray-800 border-r border-gray-100 whitespace-nowrap align-top">
+                        {{ row.slot.name }}
+                    </th>
+                    {% for cell in row.cells %}
+                    <td class="px-2 py-2 align-top text-center border-l border-gray-50">
+                        {% if cell.meal %}
+                        <span class="inline-block text-left w-full rounded-md bg-emerald-50 text-emerald-900 px-2 py-1.5 text-xs font-medium leading-snug">
+                            {{ cell.meal.name }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400 text-xs">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if slots_with_meal and members %}
+<details class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <summary class="cursor-pointer text-sm font-semibold text-gray-800">
+        Presenza ai pasti (chi partecipa a ogni pasto già assegnato)
+    </summary>
+    <p class="text-xs text-gray-500 mt-2 mb-4">
+        Solo i commensali spuntati contano per i calcoli futuri (lista spesa, macro) su quel pasto.
+        Modifica i nomi in <a href="{% url 'core:household' %}" class="text-emerald-600 underline">Nucleo familiare</a>.
+    </p>
+    <form method="post" class="space-y-4 mt-2">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="slot_attendance" />
+        {% for block in attendance_slots_ui %}
+        <fieldset class="border border-gray-100 rounded-lg p-3">
+            <legend class="text-xs font-medium text-gray-700 px-1">
+                {{ block.slot.get_day_display }} — {{ block.slot.meal_slot.name }}
+                <span class="text-gray-500">· {{ block.slot.meal.name }}</span>
+            </legend>
+            <div class="flex flex-wrap gap-3 mt-2">
+                {% for m, checked in block.members_checked %}
+                <label class="inline-flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
+                    <input type="checkbox" name="attend_{{ block.slot.id }}" value="{{ m.id }}"
+                           class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                           {% if checked %}checked{% endif %} />
+                    {{ m.display_name }}
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+        {% endfor %}
+        <button type="submit" class="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700">
+            Salva presenze
+        </button>
+    </form>
+</details>
+{% elif slots_with_meal and not members %}
+<p class="text-xs text-amber-700 mt-4">Aggiungi commensali in <a href="{% url 'core:household' %}" class="underline">Nucleo familiare</a> per registrare la presenza.</p>
+{% endif %}
+
+<p class="text-xs text-gray-500 mt-4">
+    Assegnazione pasti alle celle: ancora da admin o prossimo step in app.
+</p>
+{% endif %}
+
+{% endblock %}

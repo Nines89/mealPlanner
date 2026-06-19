@@ -36,7 +36,10 @@ def web_manifest(request):
     """
     icon_192 = request.build_absolute_uri(static('pwa/icon-192.png'))
     icon_512 = request.build_absolute_uri(static('pwa/icon-512.png'))
+    # Identità stabile dell'app (Chrome): utile quando cambiano name/start_url.
+    app_id = request.build_absolute_uri('/')
     data = {
+        'id': app_id,
         'name': 'Meal Planner',
         'short_name': 'Meal',
         'description': 'Piano pasti e nutrizione',
