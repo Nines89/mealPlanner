@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django import forms
 from django.contrib import messages
@@ -8,6 +9,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Count, Max
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
+from .nutrition import compute_week_totals
 
 from .models import (
     DayProfile,
@@ -21,7 +23,7 @@ from .models import (
     WeekPlan,
     WeekPlanDayKind,
     WeekPlanSlot,
-    WeekPlanSlotAttendance,
+    WeekPlanSlotAttendance, DayProfileMemberModifier,
 )
 
 
@@ -375,6 +377,7 @@ def week_plan_current(request):
 
     week_day_headers = [(d, WeekDay(d).label) for d in range(7)]
 
+    nutrition_totals = compute_week_totals(user, week_plan, slots_with_meal, members)
     context = {
         'week_plan': week_plan,
         'week_start': monday,
@@ -387,6 +390,7 @@ def week_plan_current(request):
         'members': members,
         'slots_with_meal': slots_with_meal,
         'attendance_slots_ui': attendance_slots_ui,
+        'nutrition_totals': nutrition_totals,
     }
     return render(request, 'core/week_plan.html', context)
 
@@ -487,12 +491,70 @@ def day_profiles_manage(request):
             else:
                 messages.error(request, 'Tipo non trovato.')
             return redirect('core:day_profiles')
+        if action == 'save_modifiers':
+            household = Household.ensure_for_user(user)
+            members = list(household.members.order_by('sort_order', 'id'))
+            profiles = list(DayProfile.objects.filter(owner=user))
+            errors = []
+            for profile in profiles:
+                for member in members:
+                    prefix = f'mod_{profile.id}_{member.id}_'
+                    raw = {
+                        'kcal_factor': request.POST.get(prefix + 'kcal', '1.00'),
+                        'protein_factor': request.POST.get(prefix + 'protein', '1.00'),
+                        'carbs_factor': request.POST.get(prefix + 'carbs', '1.00'),
+                        'fat_factor': request.POST.get(prefix + 'fat', '1.00'),
+                    }
+                    try:
+                        values = {k: Decimal(v.strip().replace(',', '.')) for k, v in raw.items()}
+                    except (InvalidOperation, AttributeError):
+                        errors.append(f'{profile.name} / {member.display_name}: valore non valido.')
+                        continue
+                    if any(v <= 0 for v in values.values()):
+                        errors.append(f'{profile.name} / {member.display_name}: i fattori devono essere > 0.')
+                        continue
+                    # Fattori tutti a 1.00 = nessuna variazione -> non serve salvare la riga,
+                    # la teniamo solo se almeno un fattore si discosta dal default.
+                    if all(v == Decimal('1.00') for v in values.values()):
+                        DayProfileMemberModifier.objects.filter(
+                            day_profile=profile, household_member=member
+                        ).delete()
+                        continue
+                    DayProfileMemberModifier.objects.update_or_create(
+                        day_profile=profile, household_member=member, defaults=values,
+                    )
+            if errors:
+                for e in errors[:5]:  # evita flood di messaggi se la matrice è grande
+                    messages.error(request, e)
+            else:
+                messages.success(request, 'Fattori nutrizionali per tipo giorno aggiornati.')
+            return redirect('core:day_profiles')
 
     form = AddDayProfileForm()
+    household = Household.ensure_for_user(user)
+    members = list(household.members.order_by('sort_order', 'id'))
+    existing_modifiers = {
+        (m.day_profile_id, m.household_member_id): m
+        for m in DayProfileMemberModifier.objects.filter(day_profile__owner=user)
+    }
+    modifier_matrix = []
+    for profile in profiles:
+        member_rows = []
+        for member in members:
+            mod = existing_modifiers.get((profile.id, member.id))
+            member_rows.append({
+                'member': member,
+                'kcal_factor': mod.kcal_factor if mod else Decimal('1.00'),
+                'protein_factor': mod.protein_factor if mod else Decimal('1.00'),
+                'carbs_factor': mod.carbs_factor if mod else Decimal('1.00'),
+                'fat_factor': mod.fat_factor if mod else Decimal('1.00'),
+            })
+        modifier_matrix.append({'profile': profile, 'member_rows': member_rows})
+
     return render(
         request,
         'core/day_profiles.html',
-        {'profiles': profiles, 'form': form},
+        {'profiles': profiles, 'form': form, 'modifier_matrix': modifier_matrix},
     )
 
 

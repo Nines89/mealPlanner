@@ -14,7 +14,75 @@
             ← Piano settimanale
         </a>
     </div>
-
+    {% if modifier_matrix and modifier_matrix.0.member_rows %}
+    <section class="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h2 class="text-sm font-semibold text-gray-800 mb-1">Fattori nutrizionali per tipo giorno</h2>
+        <p class="text-xs text-gray-500 mb-4">
+            Moltiplicatori sul target di ciascun commensale, per tipo giorno. <strong>1.00 = nessuna variazione.</strong>
+            Es. 1.15 in «Allenamento» = +15% su quella macro per quel giorno, solo per quel commensale.
+        </p>
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_modifiers" />
+            {% for block in modifier_matrix %}
+            <fieldset class="border border-gray-100 rounded-lg p-3">
+                <legend class="text-xs font-semibold text-gray-700 px-1">{{ block.profile.name }}</legend>
+                <div class="overflow-x-auto mt-2">
+                    <table class="min-w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="text-gray-500">
+                                <th class="py-1 pr-3 font-medium">Commensale</th>
+                                <th class="py-1 px-2 font-medium text-center">Kcal</th>
+                                <th class="py-1 px-2 font-medium text-center">Proteine</th>
+                                <th class="py-1 px-2 font-medium text-center">Carbo</th>
+                                <th class="py-1 px-2 font-medium text-center">Grassi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            {% for row in block.member_rows %}
+                            <tr>
+                                <td class="py-1.5 pr-3 text-gray-800 whitespace-nowrap">{{ row.member.display_name }}</td>
+                                <td class="py-1.5 px-2">
+                                    <input type="text" inputmode="decimal"
+                                           name="mod_{{ block.profile.id }}_{{ row.member.id }}_kcal"
+                                           value="{{ row.kcal_factor }}"
+                                           class="w-16 rounded border border-gray-300 px-1.5 py-1 text-center text-xs" />
+                                </td>
+                                <td class="py-1.5 px-2">
+                                    <input type="text" inputmode="decimal"
+                                           name="mod_{{ block.profile.id }}_{{ row.member.id }}_protein"
+                                           value="{{ row.protein_factor }}"
+                                           class="w-16 rounded border border-gray-300 px-1.5 py-1 text-center text-xs" />
+                                </td>
+                                <td class="py-1.5 px-2">
+                                    <input type="text" inputmode="decimal"
+                                           name="mod_{{ block.profile.id }}_{{ row.member.id }}_carbs"
+                                           value="{{ row.carbs_factor }}"
+                                           class="w-16 rounded border border-gray-300 px-1.5 py-1 text-center text-xs" />
+                                </td>
+                                <td class="py-1.5 px-2">
+                                    <input type="text" inputmode="decimal"
+                                           name="mod_{{ block.profile.id }}_{{ row.member.id }}_fat"
+                                           value="{{ row.fat_factor }}"
+                                           class="w-16 rounded border border-gray-300 px-1.5 py-1 text-center text-xs" />
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </fieldset>
+            {% endfor %}
+            <button type="submit" class="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700">
+                Salva fattori
+            </button>
+        </form>
+    </section>
+    {% elif profiles %}
+    <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-8">
+        Aggiungi commensali in <a href="{% url 'core:household' %}" class="underline">Nucleo familiare</a> per impostare fattori per tipo giorno.
+    </p>
+    {% endif %}
     {% if profiles %}
     <ul class="mb-8 divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
         {% for p in profiles %}

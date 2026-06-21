@@ -486,6 +486,47 @@ class WeekPlanDayKind(models.Model):
             )
 
 
+class DayProfileMemberModifier(models.Model):
+    """
+    Fattore moltiplicativo per macro, specifico per combinazione tipo-giorno × commensale.
+    Esempio: membro "Mario" in giorno "Allenamento" → kcal_factor=1.15, protein_factor=1.10.
+    Assenza di riga per una combinazione = nessuna variazione (fattore 1.0 implicito in UI/calcolo).
+    """
+    day_profile = models.ForeignKey(
+        DayProfile,
+        on_delete=models.CASCADE,
+        related_name='member_modifiers',
+    )
+    household_member = models.ForeignKey(
+        HouseholdMember,
+        on_delete=models.CASCADE,
+        related_name='day_modifiers',
+    )
+    kcal_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+    protein_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+    carbs_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+    fat_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+
+    class Meta:
+        unique_together = [('day_profile', 'household_member')]
+
+    def __str__(self):
+        return f"{self.day_profile.name} × {self.household_member.display_name}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.day_profile_id and self.household_member_id:
+            if self.day_profile.owner_id != self.household_member.household.owner_id:
+                raise ValidationError(
+                    'Il tipo giorno e il commensale devono appartenere allo stesso planner.'
+                )
+        for field_name in ('kcal_factor', 'protein_factor', 'carbs_factor', 'fat_factor'):
+            value = getattr(self, field_name)
+            if value is not None and value <= 0:
+                raise ValidationError({field_name: 'Il fattore deve essere maggiore di zero.'})
+
+
 class WeekPlanSlot(models.Model):
     """Singolo slot del piano: giorno × slot pasto × meal assegnata."""
     week_plan = models.ForeignKey(WeekPlan, on_delete=models.CASCADE, related_name='slots')

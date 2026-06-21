@@ -6,6 +6,7 @@ from .models import (
     Household, HouseholdMember,
     DayProfile, WeekPlanDayKind,
     UserProfile, NutritionTarget, MealSlotTarget, WeekPlan, WeekPlanSlot, WeekPlanSlotAttendance,
+    DayProfileMemberModifier,
 )
 
 
@@ -150,13 +151,47 @@ class HouseholdAdmin(admin.ModelAdmin):
     inlines = [HouseholdMemberInline]
 
 
+class DayProfileMemberModifierInline(admin.TabularInline):
+    model = DayProfileMemberModifier
+    extra = 0
+    fields = ('household_member', 'kcal_factor', 'protein_factor', 'carbs_factor', 'fat_factor')
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset_class = super().get_formset(request, obj, **kwargs)
+        day_profile = obj
+        owner = day_profile.owner if day_profile else None
+
+        class ModifierForm(formset_class.form):
+            def __init__(self, *args, **form_kw):
+                super().__init__(*args, **form_kw)
+                if owner:
+                    self.fields['household_member'].queryset = HouseholdMember.objects.filter(
+                        household__owner=owner
+                    ).order_by('sort_order', 'id')
+                else:
+                    self.fields['household_member'].queryset = HouseholdMember.objects.none()
+
+        formset_class.form = ModifierForm
+        return formset_class
+
+
 @admin.register(DayProfile)
 class DayProfileAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'order')
     list_filter = ('owner',)
     search_fields = ('name', 'owner__username')
     ordering = ('owner', 'order', 'id')
+    inlines = [DayProfileMemberModifierInline]
 
+
+@admin.register(DayProfileMemberModifier)
+class DayProfileMemberModifierAdmin(admin.ModelAdmin):
+    list_display = (
+        'day_profile', 'household_member',
+        'kcal_factor', 'protein_factor', 'carbs_factor', 'fat_factor',
+    )
+    list_filter = ('day_profile__owner', 'day_profile')
+    search_fields = ('day_profile__name', 'household_member__display_name')
 
 # ─────────────────────────────────────────
 # PIANO SETTIMANALE
