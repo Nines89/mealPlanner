@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 from .nutrition import compute_week_totals
@@ -295,6 +295,7 @@ def week_plan_current(request):
     )
     slots_list = list(slots_qs)
     slots_with_meal = [s for s in slots_list if s.meal_id]
+    meal_slots = list(MealSlot.objects.filter(user=user).order_by('order'))
 
     if request.method == 'POST':
         form_id = request.POST.get('form_id')
@@ -335,6 +336,66 @@ def week_plan_current(request):
             messages.success(request, 'Presenza ai pasti aggiornata.')
             return redirect('core:week_plan')
 
+        if form_id == 'meal_grid':
+            available_meals = Meal.objects.filter(Q(is_system=True) | Q(owner=user))
+            meals_by_id = {meal.id: meal for meal in available_meals}
+            existing_slots = {
+                (slot.day, slot.meal_slot_id): slot
+                for slot in slots_list
+            }
+            updated = 0
+            removed = 0
+            invalid = 0
+
+            for meal_slot in meal_slots:
+                for day in range(7):
+                    field_name = f'meal_{day}_{meal_slot.id}'
+                    raw_meal_id = request.POST.get(field_name, '').strip()
+                    existing_slot = existing_slots.get((day, meal_slot.id))
+
+                    if not raw_meal_id:
+                        if existing_slot:
+                            existing_slot.delete()
+                            removed += 1
+                        continue
+
+                    try:
+                        meal_id = int(raw_meal_id)
+                    except (TypeError, ValueError):
+                        invalid += 1
+                        continue
+
+                    meal = meals_by_id.get(meal_id)
+                    if meal is None:
+                        invalid += 1
+                        continue
+
+                    if existing_slot:
+                        if existing_slot.meal_id != meal.id:
+                            existing_slot.meal = meal
+                            existing_slot.save(update_fields=['meal'])
+                            updated += 1
+                        continue
+
+                    WeekPlanSlot.objects.create(
+                        week_plan=week_plan,
+                        day=day,
+                        meal_slot=meal_slot,
+                        meal=meal,
+                    )
+                    updated += 1
+
+            if invalid:
+                messages.error(
+                    request,
+                    'Alcuni pasti selezionati non sono disponibili per il tuo account e sono stati ignorati.',
+                )
+            messages.success(
+                request,
+                f'Piano pasti aggiornato: {updated} celle salvate, {removed} celle svuotate.',
+            )
+            return redirect('core:week_plan')
+
     day_kind_map = {
         row.day: row.day_profile_id
         for row in WeekPlanDayKind.objects.filter(week_plan=week_plan).only('day', 'day_profile_id')
@@ -360,7 +421,9 @@ def week_plan_current(request):
             }
         )
 
-    meal_slots = list(MealSlot.objects.filter(user=user).order_by('order'))
+    available_meals = list(
+        Meal.objects.filter(Q(is_system=True) | Q(owner=user)).order_by('name')
+    )
 
     by_day_slot = {
         (s.day, s.meal_slot_id): s.meal
@@ -382,6 +445,7 @@ def week_plan_current(request):
         'week_plan': week_plan,
         'week_start': monday,
         'meal_slots': meal_slots,
+        'available_meals': available_meals,
         'grid_rows': grid_rows,
         'week_day_headers': week_day_headers,
         'day_profiles': day_profiles,
