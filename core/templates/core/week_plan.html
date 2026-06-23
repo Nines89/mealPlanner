@@ -72,44 +72,74 @@
 {% endif %}
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="min-w-full text-sm text-left border-collapse">
-            <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th scope="col"
-                        class="sticky left-0 z-10 bg-gray-50 px-3 py-3 font-semibold text-gray-700 border-r border-gray-200 whitespace-nowrap">
-                        Slot
-                    </th>
-                    {% for day, label in week_day_headers %}
-                    <th scope="col" class="px-3 py-3 font-semibold text-gray-700 text-center min-w-[7.5rem]">
-                        {{ label }}
-                    </th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-                {% for row in grid_rows %}
-                <tr class="hover:bg-gray-50/80">
-                    <th scope="row"
-                        class="sticky left-0 z-10 bg-white px-3 py-3 font-medium text-gray-800 border-r border-gray-100 whitespace-nowrap align-top">
-                        {{ row.slot.name }}
-                    </th>
-                    {% for cell in row.cells %}
-                    <td class="px-2 py-2 align-top text-center border-l border-gray-50">
-                        {% if cell.meal %}
-                        <span class="inline-block text-left w-full rounded-md bg-emerald-50 text-emerald-900 px-2 py-1.5 text-xs font-medium leading-snug">
-                            {{ cell.meal.name }}
-                        </span>
-                        {% else %}
-                        <span class="text-gray-400 text-xs">—</span>
-                        {% endif %}
-                    </td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="border-b border-gray-100 px-4 py-3">
+        <h2 class="text-sm font-semibold text-gray-900">Pasti della settimana</h2>
+        <p class="text-xs text-gray-500 mt-1">
+            Seleziona un pasto per ogni cella e salva. Scegli “— nessun pasto —” per svuotare una cella.
+        </p>
     </div>
+    {% if available_meals %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="meal_grid" />
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th scope="col"
+                            class="sticky left-0 z-10 bg-gray-50 px-3 py-3 font-semibold text-gray-700 border-r border-gray-200 whitespace-nowrap">
+                            Slot
+                        </th>
+                        {% for day, label in week_day_headers %}
+                        <th scope="col" class="px-3 py-3 font-semibold text-gray-700 text-center min-w-[11rem]">
+                            {{ label }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in grid_rows %}
+                    <tr class="hover:bg-gray-50/80">
+                        <th scope="row"
+                            class="sticky left-0 z-10 bg-white px-3 py-3 font-medium text-gray-800 border-r border-gray-100 whitespace-nowrap align-top">
+                            {{ row.slot.name }}
+                        </th>
+                        {% for cell in row.cells %}
+                        <td class="px-2 py-2 align-top text-center border-l border-gray-50">
+                            <label class="sr-only" for="meal-{{ cell.day }}-{{ row.slot.id }}">
+                                {{ row.slot.name }} — {{ cell.day }}
+                            </label>
+                            <select id="meal-{{ cell.day }}-{{ row.slot.id }}"
+                                    name="meal_{{ cell.day }}_{{ row.slot.id }}"
+                                    class="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-800 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400">
+                                <option value="">— nessun pasto —</option>
+                                {% for meal in available_meals %}
+                                <option value="{{ meal.id }}" {% if cell.meal and cell.meal.id == meal.id %}selected{% endif %}>
+                                    {% if meal.is_system %}★ {% endif %}{{ meal.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="flex flex-col gap-2 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs text-gray-500">
+                I pasti di sistema sono marcati con ★. I pasti personali compaiono insieme ai pasti di sistema.
+            </p>
+            <button type="submit" class="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700">
+                Salva piano pasti
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div class="px-4 py-6 text-sm text-amber-700">
+        Non ci sono pasti disponibili da assegnare. Crea pasti dall’admin o importa un catalogo di sistema.
+    </div>
+    {% endif %}
 </div>
 
 {% if slots_with_meal and members %}
@@ -256,9 +286,6 @@
 </p>
 {% endif %}
 
-<p class="text-xs text-gray-500 mt-4">
-    Assegnazione pasti alle celle: ancora da admin o prossimo step in app.
-</p>
 {% endif %}
 
 {% endblock %}
