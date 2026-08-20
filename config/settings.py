@@ -25,8 +25,8 @@ SECRET_KEY = 'django-insecure--^#$em&dh0cnuv-ys_7&6%nbp1txi5%o2^=z6n0g%o$-(4kqqd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# Host header consentiti. In DEBUG, ``*`` = qualsiasi Host (es. ``192.168.1.7`` da altri PC / telefono).
-# In produzione: DEBUG=False e elenco esplicito di domini (mai ``*``).
+# Allowed Host header values. In DEBUG, ``*`` accepts any Host (e.g. ``192.168.1.7`` from another PC / phone).
+# In production: DEBUG=False and an explicit domain list (never ``*``).
 ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost']
 
 
@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.AutoLoginLocalUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -106,7 +107,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'it'
+LANGUAGE_CODE = 'en'
 TIME_ZONE = 'Europe/Rome'
 
 USE_I18N = True
@@ -120,9 +121,6 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']   # file statici del progetto
 STATIC_ROOT = BASE_DIR / 'staticfiles'     # destinazione per collectstatic (produzione)
-
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
 
 # Django REST Framework (endpoint minimi; espandere con ViewSet/versioning se serve)
 REST_FRAMEWORK = {

@@ -1,10 +1,10 @@
 """
-PWA: manifest e service worker serviti dalla root dell'origine.
+PWA: manifest and service worker served from the origin root.
 
-Perché non solo ``static/``?
-- Lo scope di un SW è (di default) la directory del file. Un file in ``/static/sw.js``
-  non controlla le navigazioni verso ``/`` o ``/accounts/…``.
-- ``/sw.js`` ha scope ``/`` → possiamo intercettare solo ciò che decidiamo (qui: ``/static/``).
+Why not only ``static/``?
+- A service worker's default scope is the directory of the file. ``/static/sw.js``
+  cannot control navigations to ``/``.
+- ``/sw.js`` has scope ``/`` so we can intercept only what we choose (here: ``/static/``).
 """
 
 import json
@@ -20,10 +20,9 @@ def _sw_source_bytes() -> bytes:
 
 
 def service_worker(request):
-    """Serve ``/sw.js`` con tipo MIME corretto per i browser."""
+    """Serve ``/sw.js`` with the MIME type browsers expect."""
     body = _sw_source_bytes()
     resp = HttpResponse(body, content_type='application/javascript; charset=utf-8')
-    # Evita caching aggressivo dello SW da parte di CDN/browser durante lo sviluppo
     resp.headers['Cache-Control'] = 'no-cache, max-age=0'
     return resp
 
@@ -32,24 +31,23 @@ def web_manifest(request):
     """
     ``/manifest.webmanifest`` — Web App Manifest (JSON).
 
-    URL delle icone assoluti: alcuni browser/Android sono più tolleranti così.
+    Absolute icon URLs: some browsers/Android are more tolerant of that.
     """
     icon_192 = request.build_absolute_uri(static('pwa/icon-192.png'))
     icon_512 = request.build_absolute_uri(static('pwa/icon-512.png'))
-    # Identità stabile dell'app (Chrome): utile quando cambiano name/start_url.
     app_id = request.build_absolute_uri('/')
     data = {
         'id': app_id,
         'name': 'Meal Planner',
         'short_name': 'Meal',
-        'description': 'Piano pasti e nutrizione',
+        'description': 'Meal plan and nutrition',
         'start_url': '/',
         'scope': '/',
         'display': 'standalone',
         'orientation': 'portrait-primary',
         'background_color': '#f9fafb',
         'theme_color': '#059669',
-        'lang': 'it',
+        'lang': 'en',
         'icons': [
             {
                 'src': icon_192,

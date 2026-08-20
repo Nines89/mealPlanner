@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping list — Meal Planner{% endblock %}
+
+{% block content %}
+
+<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Shopping list</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            Week of <span class="font-medium text-gray-700">{{ week_start|date:"l j F Y" }}</span>
+            · plate grams × {{ member_count }} {{ member_count|pluralize:"person,people" }}
+        </p>
+    </div>
+    <a href="{% url 'core:week_plan' %}" class="text-sm text-emerald-600 hover:text-emerald-800 font-medium shrink-0">
+        ← Week plan
+    </a>
+</div>
+
+{% if not week_plan %}
+<p class="text-sm text-gray-600">No week plan yet. Open the week plan to create this week’s grid.</p>
+{% elif not rows %}
+<p class="text-sm text-gray-600">No meals assigned this week. Choose categories and click Build on the week plan.</p>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <table class="min-w-full text-sm text-left">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="px-4 py-3 font-semibold text-gray-700">Ingredient</th>
+                <th class="px-4 py-3 font-semibold text-gray-700 text-right">Grams</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for row in rows %}
+            <tr>
+                <td class="px-4 py-2 text-gray-900">{{ row.name }}</td>
+                <td class="px-4 py-2 text-gray-800 text-right tabular-nums">{{ row.grams|floatformat:0 }} g</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

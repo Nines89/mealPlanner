@@ -5,7 +5,7 @@ register = template.Library()
 
 @register.filter
 def get_item(dictionary, key):
-    """Accesso a dict per chiave dinamica nei template (es. {{ d|get_item:variabile }})."""
+    """Look up a dict key from a template variable (e.g. {{ d|get_item:variable }})."""
     if dictionary is None:
         return None
     return dictionary.get(key)

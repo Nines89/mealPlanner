@@ -6,109 +6,237 @@
 
 <div class="max-w-5xl mx-auto">
     <header class="mb-8">
-        <p class="text-sm font-medium text-emerald-600 mb-1">Bentornato</p>
-        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Ciao, {{ user.username }}</h1>
+        <p class="text-sm font-medium text-emerald-600 mb-1">This week</p>
+        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Meal planner</h1>
         <div class="mt-5 flex flex-wrap gap-2">
             <a href="{% url 'core:week_plan' %}"
                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-emerald-700 transition-colors">
-                Piano settimanale
+                Week plan
             </a>
-            <a href="{% url 'core:day_profiles' %}"
+            <a href="{% url 'core:shopping_list' %}"
                class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white text-gray-800 px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
-                Tipi di giorno
+                Shopping list
             </a>
             <a href="{% url 'core:household' %}"
                class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white text-gray-800 px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
-                Nucleo familiare
+                Household
             </a>
         </div>
     </header>
 
     <section class="mb-8">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">Target nutrizionali</h2>
-                <p class="text-sm text-gray-500 mt-1 max-w-xl">
-                    Collega un target a ogni commensale di <strong>{{ household }}</strong> (un target attivo per persona; lo stesso target può essere condiviso).
+                <h2 class="text-lg font-semibold text-gray-900">Today’s meals</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    {{ today_label }} {{ today|date:"j F Y" }}
+                    · <span class="font-medium text-gray-700">{{ today_kind|upper }}</span>
+                    {% if day_target %}{{ day_target.target_kcal }} kcal{% endif %}
+                    · {{ member_count }} {{ member_count|pluralize:"person,people" }}
                 </p>
             </div>
-            <a href="{% url 'core:nutrition_target_create' %}"
-               class="text-sm font-semibold text-emerald-600 hover:text-emerald-800 shrink-0">
-                + Nuovo target
+            <a href="{% url 'core:week_plan' %}" class="text-sm font-medium text-emerald-600 hover:text-emerald-800">
+                Edit week plan →
             </a>
         </div>
 
-        <div class="grid gap-5 md:grid-cols-2">
-            {% for row in member_rows %}
+        {% if not today_slots %}
+        <p class="text-sm text-gray-600">No lunch or dinner slots. Recreate the profile or add slots in admin.</p>
+        {% else %}
+        <div class="grid gap-5 {% if today_slots|length > 1 %}md:grid-cols-2{% endif %}">
+            {% for row in today_slots %}
             <article class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden ring-1 ring-gray-900/5">
-                <div class="border-b border-gray-100 bg-gray-50/80 px-5 py-3">
-                    <h3 class="font-semibold text-gray-900">{{ row.member.display_name }}</h3>
+                <div class="border-b border-gray-100 px-5 py-3 {% if row.meal or row.genre_label %}bg-emerald-50/80{% else %}bg-gray-50{% endif %}">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">{{ row.slot.name }}</p>
+                    {% if row.meal %}
+                    <h3 class="font-semibold text-gray-900 mt-0.5">{{ row.meal.name }}</h3>
+                    {% elif row.genre_label %}
+                    <h3 class="font-semibold text-gray-900 mt-0.5">{{ row.genre_label }}</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Category only — no dish yet</p>
+                    <a href="{% url 'core:week_plan' %}" class="text-xs font-medium text-emerald-600 hover:text-emerald-800">Build on the week plan</a>
+                    {% else %}
+                    <h3 class="font-semibold text-gray-500 mt-0.5">Not assigned</h3>
+                    <a href="{% url 'core:week_plan' %}" class="text-xs font-medium text-emerald-600 hover:text-emerald-800">Set a category on the week plan</a>
+                    {% endif %}
                 </div>
+                {% if row.meal %}
                 <div class="p-5">
-                    {% if row.active_target %}
-                    <p class="text-xs text-gray-500 mb-3">
-                        <span class="text-gray-600 font-medium">{{ row.active_target.name }}</span>
-                    </p>
-                    <div class="grid grid-cols-2 gap-2 mb-5">
-                        <div class="rounded-xl bg-amber-50 px-3 py-2 text-center border border-amber-100/80">
-                            <p class="text-lg font-bold text-amber-700">{{ row.active_target.target_kcal }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Per plate</p>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div class="rounded-xl bg-amber-50 px-2 py-2 text-center border border-amber-100/80">
+                            <p class="text-lg font-bold text-amber-700">{{ row.macros.kcal|floatformat:0 }}</p>
                             <p class="text-[10px] uppercase tracking-wide text-amber-800/70">kcal</p>
                         </div>
-                        <div class="rounded-xl bg-red-50 px-3 py-2 text-center border border-red-100/80">
-                            <p class="text-lg font-bold text-red-600">{{ row.active_target.target_protein }}g</p>
-                            <p class="text-[10px] uppercase tracking-wide text-red-800/70">prot</p>
+                        <div class="rounded-xl bg-red-50 px-2 py-2 text-center border border-red-100/80">
+                            <p class="text-lg font-bold text-red-600">{{ row.macros.protein|floatformat:0 }}g</p>
+                            <p class="text-[10px] uppercase tracking-wide text-red-800/70">protein</p>
                         </div>
-                        <div class="rounded-xl bg-blue-50 px-3 py-2 text-center border border-blue-100/80">
-                            <p class="text-lg font-bold text-blue-600">{{ row.active_target.target_carbs }}g</p>
-                            <p class="text-[10px] uppercase tracking-wide text-blue-800/70">carb</p>
+                        <div class="rounded-xl bg-blue-50 px-2 py-2 text-center border border-blue-100/80">
+                            <p class="text-lg font-bold text-blue-600">{{ row.macros.carbs|floatformat:0 }}g</p>
+                            <p class="text-[10px] uppercase tracking-wide text-blue-800/70">carbs</p>
                         </div>
-                        <div class="rounded-xl bg-green-50 px-3 py-2 text-center border border-green-100/80">
-                            <p class="text-lg font-bold text-green-600">{{ row.active_target.target_fat }}g</p>
-                            <p class="text-[10px] uppercase tracking-wide text-green-800/70">grassi</p>
+                        <div class="rounded-xl bg-green-50 px-2 py-2 text-center border border-green-100/80">
+                            <p class="text-lg font-bold text-green-600">{{ row.macros.fat|floatformat:0 }}g</p>
+                            <p class="text-[10px] uppercase tracking-wide text-green-800/70">fat</p>
                         </div>
                     </div>
-                    {% else %}
-                    <p class="text-sm text-gray-500 mb-5">Nessun target collegato.</p>
+                    {% if member_count > 1 %}
+                    <div class="mt-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            For {{ member_count }} people
+                            <span class="font-medium normal-case tracking-normal text-gray-400"> · same plate × {{ member_count }}</span>
+                        </p>
+                        <p class="text-sm font-medium text-gray-800 mt-0.5">
+                            {{ row.household_macros.kcal|floatformat:0 }} kcal
+                            · {{ row.household_macros.protein|floatformat:0 }} g protein
+                            · {{ row.household_macros.carbs|floatformat:0 }} g carbs
+                            · {{ row.household_macros.fat|floatformat:0 }} g fat
+                        </p>
+                    </div>
                     {% endif %}
 
-                    <form method="post" class="flex flex-col gap-3">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="assign_member_target" />
-                        <input type="hidden" name="member_id" value="{{ row.member.id }}" />
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Target esistente</label>
-                            <select name="nutrition_target_id"
-                                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
-                                <option value="">— Nessuno —</option>
-                                {% for nt in row.assignable_targets %}
-                                <option value="{{ nt.id }}"
-                                        {% if row.active_target and row.active_target.id == nt.id %}selected{% endif %}>
-                                    {% for lm in nt.linked_household_members.all %}
-                                    {% if lm.id != row.member.id %}[{{ lm.display_name }}]{% endif %}
-                                    {% endfor %}
-                                    {{ nt.name }} ({{ nt.target_kcal }} kcal)
-                                </option>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-5 mb-2">Ingredients</p>
+                    <ul class="divide-y divide-gray-100 md:hidden">
+                        {% for item in row.items %}
+                        <li class="py-2.5">
+                            <div class="flex items-baseline justify-between gap-3">
+                                <span class="text-sm font-medium text-gray-900">{{ item.name }}</span>
+                                <span class="text-xs tabular-nums text-gray-500">{{ item.kcal|floatformat:0 }} kcal / plate</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ item.grams|floatformat:0 }} g per plate
+                                {% if member_count > 1 %}
+                                · {{ item.household_grams|floatformat:0 }} g for {{ member_count }}
+                                {% endif %}
+                            </p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th scope="col" class="text-left font-medium py-1 pr-2">Ingredient</th>
+                                    <th scope="col" class="text-right font-medium py-1 px-1">Per plate</th>
+                                    {% if member_count > 1 %}
+                                    <th scope="col" class="text-right font-medium py-1 px-1">For {{ member_count }}</th>
+                                    {% endif %}
+                                    <th scope="col" class="text-right font-medium py-1 pl-1">kcal / plate</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-50">
+                                {% for item in row.items %}
+                                <tr>
+                                    <td class="py-1.5 pr-2 text-gray-800">{{ item.name }}</td>
+                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-700">{{ item.grams|floatformat:0 }} g</td>
+                                    {% if member_count > 1 %}
+                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-500">{{ item.household_grams|floatformat:0 }} g</td>
+                                    {% endif %}
+                                    <td class="py-1.5 pl-1 text-right tabular-nums text-gray-500">{{ item.kcal|floatformat:0 }}</td>
+                                </tr>
                                 {% endfor %}
-                            </select>
-                        </div>
-                        <button type="submit" class="w-full rounded-lg bg-gray-900 text-white py-2 text-sm font-medium hover:bg-gray-800">
-                            Salva collegamento
-                        </button>
-                    </form>
-
-                    <p class="mt-4 text-center">
-                        <a href="{% url 'core:nutrition_target_create' %}?membro={{ row.member.id }}"
-                           class="text-sm font-medium text-emerald-600 hover:text-emerald-800">
-                            Crea nuovo target per {{ row.member.display_name }} →
-                        </a>
-                    </p>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+                {% endif %}
             </article>
             {% endfor %}
         </div>
+        {% if day_effective %}
+        <p class="text-sm text-gray-600 mt-4">
+            Today so far{% if member_count > 1 %} for {{ member_count }} people{% endif %}:
+            <span class="font-medium text-gray-800">{{ day_effective.kcal|floatformat:0 }} kcal</span>
+            · {{ day_effective.protein|floatformat:0 }} g protein
+            · {{ day_effective.carbs|floatformat:0 }} g carbs
+            · {{ day_effective.fat|floatformat:0 }} g fat
+            {% if day_expected %}
+            <span class="text-gray-400"> of {{ day_expected.kcal|floatformat:0 }} kcal target</span>
+            {% endif %}
+        </p>
+        {% endif %}
+        {% endif %}
     </section>
 
-    {% include "core/_catalog_section.html" %}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold text-gray-900">Nutrition targets</h2>
+        <p class="text-sm text-gray-500 mt-1 mb-5 max-w-xl">
+            Two targets only. Mark each weekday ON or OFF on the week plan.
+            Build scales lunch and dinner to 85–100% of that day's target;
+            shopping multiplies the plate by
+            {{ members|length }} {{ members|length|pluralize:"person,people" }}.
+        </p>
+
+        <div class="grid gap-5 md:grid-cols-2">
+            {% if on_target %}
+            <article class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden ring-1 ring-gray-900/5">
+                <div class="border-b border-gray-100 bg-emerald-50/80 px-5 py-3">
+                    <h3 class="font-semibold text-gray-900">ON</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Training days</p>
+                </div>
+                <div class="p-5">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-xl bg-amber-50 px-3 py-2 text-center border border-amber-100/80 col-span-2">
+                            <p class="text-2xl font-bold text-amber-700">{{ on_target.target_kcal }}</p>
+                            <p class="text-[10px] uppercase tracking-wide text-amber-800/70">kcal</p>
+                        </div>
+                        <div class="rounded-xl bg-red-50 px-3 py-2 text-center border border-red-100/80">
+                            <p class="text-lg font-bold text-red-600">{{ on_target.protein_pct_min }}–{{ on_target.protein_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-red-800/70">protein</p>
+                        </div>
+                        <div class="rounded-xl bg-green-50 px-3 py-2 text-center border border-green-100/80">
+                            <p class="text-lg font-bold text-green-600">{{ on_target.fat_pct_min }}–{{ on_target.fat_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-green-800/70">fat</p>
+                        </div>
+                        <div class="rounded-xl bg-blue-50 px-3 py-2 text-center border border-blue-100/80 col-span-2">
+                            <p class="text-lg font-bold text-blue-600">{{ on_target.carbs_pct_min }}–{{ on_target.carbs_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-blue-800/70">carbs</p>
+                        </div>
+                    </div>
+                </div>
+            </article>
+            {% endif %}
+            {% if off_target %}
+            <article class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden ring-1 ring-gray-900/5">
+                <div class="border-b border-gray-100 bg-gray-50 px-5 py-3">
+                    <h3 class="font-semibold text-gray-900">OFF</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Rest days</p>
+                </div>
+                <div class="p-5">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-xl bg-amber-50 px-3 py-2 text-center border border-amber-100/80 col-span-2">
+                            <p class="text-2xl font-bold text-amber-700">{{ off_target.target_kcal }}</p>
+                            <p class="text-[10px] uppercase tracking-wide text-amber-800/70">kcal</p>
+                        </div>
+                        <div class="rounded-xl bg-red-50 px-3 py-2 text-center border border-red-100/80">
+                            <p class="text-lg font-bold text-red-600">{{ off_target.protein_pct_min }}–{{ off_target.protein_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-red-800/70">protein</p>
+                        </div>
+                        <div class="rounded-xl bg-green-50 px-3 py-2 text-center border border-green-100/80">
+                            <p class="text-lg font-bold text-green-600">{{ off_target.fat_pct_min }}–{{ off_target.fat_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-green-800/70">fat</p>
+                        </div>
+                        <div class="rounded-xl bg-blue-50 px-3 py-2 text-center border border-blue-100/80 col-span-2">
+                            <p class="text-lg font-bold text-blue-600">{{ off_target.carbs_pct_min }}–{{ off_target.carbs_pct_max }}%</p>
+                            <p class="text-[10px] uppercase tracking-wide text-blue-800/70">carbs</p>
+                        </div>
+                    </div>
+                </div>
+            </article>
+            {% endif %}
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">Household</h2>
+        <p class="text-sm text-gray-500 mb-3">
+            Everyone eats the same plate.
+            {% for m in members %}{{ m.display_name }}{% if not forloop.last %}, {% endif %}{% empty %}No members{% endfor %}.
+        </p>
+        <a href="{% url 'core:household' %}" class="text-sm font-medium text-emerald-600 hover:text-emerald-800">
+            Edit names →
+        </a>
+    </section>
 </div>
 
 {% endblock %}

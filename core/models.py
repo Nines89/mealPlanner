@@ -1,14 +1,15 @@
 from django.db import models
+from django.db.models import Max
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 
 
 # ─────────────────────────────────────────
-# SLOT PASTO
+# MEAL SLOTS
 # ─────────────────────────────────────────
 
 class MealSlotDefault(models.Model):
-    """Struttura giornata globale (Colazione, Pranzo, Cena)."""
+    """Global day structure: lunch and dinner only."""
     name = models.CharField(max_length=50)
     order = models.PositiveSmallIntegerField()
 
@@ -20,86 +21,106 @@ class MealSlotDefault(models.Model):
 
 
 class MealSlot(models.Model):
-    """Struttura giornata personalizzata per utente."""
+    """Per-user day structure (lunch and dinner)."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meal_slots')
     name = models.CharField(max_length=50)
     order = models.PositiveSmallIntegerField()
 
     class Meta:
         ordering = ['order']
-        unique_together = [('user', 'order')]  # niente slot con stesso ordine per utente
+        unique_together = [('user', 'order')]
 
     def __str__(self):
         return f"{self.user.username} — {self.name}"
 
 
 # ─────────────────────────────────────────
-# PROFILO UTENTE
+# USER PROFILE
 # ─────────────────────────────────────────
 
 class DietStyle(models.TextChoices):
-    NONE        = 'none',         'Nessuno'
-    VEGETARIAN  = 'vegetarian',   'Vegetariano'
-    VEGAN       = 'vegan',        'Vegano'
-    PESCATARIAN = 'pescatarian',  'Pescatariano'
+    NONE        = 'none',         'None'
+    VEGETARIAN  = 'vegetarian',   'Vegetarian'
+    VEGAN       = 'vegan',        'Vegan'
+    PESCATARIAN = 'pescatarian',  'Pescatarian'
+
+
+class DayKind(models.TextChoices):
+    ON = 'on', 'ON'
+    OFF = 'off', 'OFF'
 
 
 class UserProfile(models.Model):
-    """Estende User con preferenze permanenti (non legate al periodo)."""
+    """Extends User with lasting preferences (not tied to a given week)."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    allergies = models.TextField(blank=True, help_text='Testo libero, es: glutine, lattosio')
-
-    def __str__(self):
-        return f"Profilo di {self.user.username}"
-
-
-# ─────────────────────────────────────────
-# NUCLEO FAMIGLIA (porzioni per persona, presenza agli slot)
-# ─────────────────────────────────────────
-
-class Household(models.Model):
-    """Nucleo familiare gestito dal planner (un nucleo per utente in questa versione)."""
-    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='household_managed')
-    name = models.CharField(max_length=100, blank=True, help_text='Es. Famiglia Rossi')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    @classmethod
-    def ensure_for_user(cls, user):
-        """Crea nucleo e un membro di default se mancano (es. username come nome)."""
-        h, _ = cls.objects.get_or_create(owner=user, defaults={'name': ''})
-        if not h.members.exists():
-            HouseholdMember.objects.create(
-                household=h,
-                display_name=user.get_username() or 'Io',
-                sort_order=0,
-            )
-        return h
-
-    def __str__(self):
-        return self.name or f"Nucleo di {self.owner.username}"
-
-
-class HouseholdMember(models.Model):
-    """Commensale: stesso pasto, grammi diversi per ingrediente (vedi MealIngredientMemberPortion)."""
-    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name='members')
-    display_name = models.CharField(max_length=80)
-    linked_user = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='household_memberships',
-        help_text='Opzionale: collegamento a un account (futuro).',
-    )
-    sort_order = models.PositiveSmallIntegerField(default=0)
+    allergies = models.TextField(blank=True, help_text='Free text, e.g. gluten, lactose')
     nutrition_target = models.ForeignKey(
         'NutritionTarget',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='linked_household_members',
-        help_text='Target attivo per questo commensale; più persone possono condividere lo stesso target.',
+        related_name='active_for_profiles',
+        help_text='Active household nutrition target (one plate, one target).',
     )
+
+    def __str__(self):
+        return f"Profile of {self.user.username}"
+
+
+# ─────────────────────────────────────────
+# HOUSEHOLD (names only; same plate for everyone)
+# ─────────────────────────────────────────
+
+class Household(models.Model):
+    """Household managed by the planner (one per user). Names only; everyone eats the same plate."""
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='household_managed')
+    name = models.CharField(max_length=100, blank=True, help_text='e.g. Rossi household')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def ensure_for_user(cls, user):
+        """Create household and a default member if missing (username as display name)."""
+        h, _ = cls.objects.get_or_create(owner=user, defaults={'name': ''})
+        if not h.members.exists():
+            HouseholdMember.objects.create(
+                household=h,
+                display_name=user.get_username() or 'Me',
+                sort_order=0,
+            )
+        return h
+
+    def member_count(self):
+        return self.members.count()
+
+    def add_named_member(self, display_name):
+        name = (display_name or '').strip()
+        if not name:
+            return None
+        max_order = self.members.aggregate(highest=Max('sort_order'))['highest']
+        next_order = -1 if max_order is None else max_order
+        return HouseholdMember.objects.create(
+            household=self,
+            display_name=name,
+            sort_order=next_order + 1,
+        )
+
+    def try_remove_member(self, member_id):
+        if self.members.count() <= 1:
+            return 'last_member'
+        deleted, _counts = self.members.filter(id=member_id).delete()
+        if deleted:
+            return 'removed'
+        return 'not_found'
+
+    def __str__(self):
+        return self.name or f"{self.owner.username}'s household"
+
+
+class HouseholdMember(models.Model):
+    """Household member. Same meal and grams as everyone else; count is used for shopping."""
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name='members')
+    display_name = models.CharField(max_length=80)
+    sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ['sort_order', 'id']
@@ -109,24 +130,37 @@ class HouseholdMember(models.Model):
 
 
 # ─────────────────────────────────────────
-# TARGET NUTRIZIONALE (per piano)
+# NUTRITION TARGET (ON / OFF)
 # ─────────────────────────────────────────
 
 class NutritionTarget(models.Model):
     """
-    Target nutrizionale + stile dietetico.
-
-    ``owner`` = planner (utente Django). I commensali referenziano il target con
-    ``HouseholdMember.nutrition_target``; più membri possono condividere lo stesso target.
+    Household nutrition target. Only two rows exist: ON (training) and OFF (rest).
+    Macro fields in grams are midpoints of the percentage ranges, used by the filler.
     """
     owner = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='nutrition_targets')
     is_system = models.BooleanField(default=False)
-    name = models.CharField(max_length=100, help_text='es. "Bulk 2800kcal", "Definizione vegana"')
+    kind = models.CharField(
+        max_length=8,
+        choices=DayKind.choices,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text='ON or OFF day. Only these two targets are used.',
+    )
+    name = models.CharField(max_length=100, help_text='ON or OFF')
 
     target_kcal = models.PositiveIntegerField(default=2000)
-    target_protein = models.PositiveIntegerField(default=150, help_text='grammi')
-    target_carbs = models.PositiveIntegerField(default=200, help_text='grammi')
-    target_fat = models.PositiveIntegerField(default=70, help_text='grammi')
+    target_protein = models.PositiveIntegerField(default=150, help_text='grams (midpoint of the protein % range)')
+    target_carbs = models.PositiveIntegerField(default=200, help_text='grams (midpoint of the carb % range)')
+    target_fat = models.PositiveIntegerField(default=70, help_text='grams (midpoint of the fat % range)')
+
+    protein_pct_min = models.PositiveSmallIntegerField(default=15)
+    protein_pct_max = models.PositiveSmallIntegerField(default=25)
+    carbs_pct_min = models.PositiveSmallIntegerField(default=45)
+    carbs_pct_max = models.PositiveSmallIntegerField(default=50)
+    fat_pct_min = models.PositiveSmallIntegerField(default=20)
+    fat_pct_max = models.PositiveSmallIntegerField(default=25)
 
     diet_style = models.CharField(
         max_length=20,
@@ -135,21 +169,29 @@ class NutritionTarget(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, editable=False)
 
+    def save(self, *args, **kwargs):
+        if self.kind:
+            from .targets import apply_midpoint_grams
+
+            apply_midpoint_grams(self)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        prefix = '[SYS] ' if self.is_system else ''
-        return f"{prefix}{self.name}"
+        return f"{self.name} ({self.target_kcal} kcal)"
+
+
 # ─────────────────────────────────────────
-# TAG (regimi speciali / allergeni)
+# TAGS (diet styles / allergens)
 # ─────────────────────────────────────────
 
 class TagType(models.TextChoices):
-    DIET     = 'diet',     'Regime alimentare'
-    ALLERGEN = 'allergen', 'Allergene'
+    DIET     = 'diet',     'Diet'
+    ALLERGEN = 'allergen', 'Allergen'
 
 class Tag(models.Model):
     """
-    Etichetta associabile a un ingrediente.
-    Esempi: vegano, vegetariano, glutine, lattosio, frutta a guscio.
+    Label that can be attached to an ingredient.
+    Examples: vegan, vegetarian, gluten, lactose, nuts.
     """
     name     = models.CharField(max_length=50, unique=True)
     tag_type = models.CharField(max_length=20, choices=TagType.choices)
@@ -159,13 +201,13 @@ class Tag(models.Model):
 
 
 # ─────────────────────────────────────────
-# DISTRIBUZIONE TARGET PER SLOT PASTO
+# SLOT SHARE OF A NUTRITION TARGET
 # ─────────────────────────────────────────
 
 class MealSlotTarget(models.Model):
     """
-    Distribuzione del NutritionTarget per slot pasto.
-    Esiste solo per target personali (nutrition_target.owner != None).
+    Share of a NutritionTarget for one meal slot.
+    Only used for personal targets (nutrition_target.owner != None).
     """
     nutrition_target = models.ForeignKey(
         NutritionTarget,
@@ -181,11 +223,11 @@ class MealSlotTarget(models.Model):
     percentage = models.DecimalField(
         max_digits=5, decimal_places=2,
         null=True, blank=True,
-        help_text='% del totale giornaliero (0-100)'
+        help_text='% of the daily total (0-100)'
     )
 
     kcal    = models.PositiveIntegerField(null=True, blank=True)
-    protein = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
+    protein = models.PositiveIntegerField(null=True, blank=True, help_text='grams')
     carbs   = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
     fat     = models.PositiveIntegerField(null=True, blank=True, help_text='grammi')
 
@@ -206,8 +248,8 @@ class MealSlotTarget(models.Model):
             raise ValidationError(
                 {
                     'nutrition_target': (
-                        'La distribuzione per slot si applica solo a target personali '
-                        '(con utente proprietario).'
+                        'Slot distribution applies only to personal targets '
+                        '(with an owner user).'
                     ),
                 }
             )
@@ -215,13 +257,13 @@ class MealSlotTarget(models.Model):
             raise ValidationError(
                 {
                     'meal_slot': (
-                        'Lo slot pasto deve appartenere allo stesso utente del target nutrizionale.'
+                        'The meal slot must belong to the same user as the nutrition target.'
                     ),
                 }
             )
 
     def calculate_from_percentage(self):
-        """Popola i valori assoluti dalla percentuale e dal NutritionTarget padre."""
+        """Fill absolute values from the percentage and the parent NutritionTarget."""
         if self.percentage is None:
             return
         ratio = self.percentage / 100
@@ -233,20 +275,20 @@ class MealSlotTarget(models.Model):
 
 
 # ─────────────────────────────────────────
-# STAGIONALITÀ
+# SEASONALITY
 # ─────────────────────────────────────────
 
 class Season(models.TextChoices):
-    SPRING = 'spring', 'Primavera'
-    SUMMER = 'summer', 'Estate'
-    AUTUMN = 'autumn', 'Autunno'
-    WINTER = 'winter', 'Inverno'
+    SPRING = 'spring', 'Spring'
+    SUMMER = 'summer', 'Summer'
+    AUTUMN = 'autumn', 'Autumn'
+    WINTER = 'winter', 'Winter'
 
 
 class SeasonEntry(models.Model):
     """
-    Tabella semplice con le 4 stagioni.
-    Separata da TextChoices per permettere la relazione M:M con Ingredient.
+    Simple table of the four seasons.
+    Separate from TextChoices so Ingredient can use an M2M relation.
     """
     name = models.CharField(max_length=10, choices=Season.choices, unique=True)
 
@@ -255,34 +297,34 @@ class SeasonEntry(models.Model):
 
 
 # ─────────────────────────────────────────
-# INGREDIENTI
+# INGREDIENTS
 # ─────────────────────────────────────────
 
 class IngredientCategory(models.TextChoices):
-    PROTEIN   = 'protein',   'Proteina'
-    VEGETABLE = 'vegetable', 'Verdura'
-    CARB      = 'carb',      'Carboidrato'
-    FAT       = 'fat',       'Grasso'
-    DAIRY     = 'dairy',     'Latticino'
-    FRUIT     = 'fruit',     'Frutta'
-    OTHER     = 'other',     'Altro'
+    PROTEIN   = 'protein',   'Protein'
+    VEGETABLE = 'vegetable', 'Vegetable'
+    CARB      = 'carb',      'Carbohydrate'
+    FAT       = 'fat',       'Fat'
+    DAIRY     = 'dairy',     'Dairy'
+    FRUIT     = 'fruit',     'Fruit'
+    OTHER     = 'other',     'Other'
 
 
 class VegetableSubcategory(models.TextChoices):
-    LEAFY    = 'leafy',    'Ortaggi a foglia'
-    ROOT     = 'root',     'Radici'
-    TUBER    = 'tuber',    'Tuberi'
-    FLOWER   = 'flower',   'Ortaggi a fiore'
-    FRUIT_VEG = 'fruit_veg', 'Ortaggi a frutto'
-    BULB     = 'bulb',     'Bulbi'
-    STEM     = 'stem',     'Ortaggi a fusto'
-    LEGUME   = 'legume',   'Legumi'
+    LEAFY    = 'leafy',    'Leafy greens'
+    ROOT     = 'root',     'Roots'
+    TUBER    = 'tuber',    'Tubers'
+    FLOWER   = 'flower',   'Flower vegetables'
+    FRUIT_VEG = 'fruit_veg', 'Fruit vegetables'
+    BULB     = 'bulb',     'Bulbs'
+    STEM     = 'stem',     'Stem vegetables'
+    LEGUME   = 'legume',   'Legumes'
 
 
 class Ingredient(models.Model):
     """
-    Ingrediente con valori nutrizionali per 100g.
-    Dato di sistema: popolato da staff, non dagli utenti.
+    Ingredient with nutrition values per 100 g.
+    System data: seeded by staff, not by household users.
     """
     # Identificazione
     name     = models.CharField(max_length=100, unique=True)
@@ -319,22 +361,44 @@ class Ingredient(models.Model):
         return f"{self.name} ({self.get_category_display()})"
 
     def clean(self):
-        """Validazione: subcategoria vegetale coerente con la categoria."""
+        """Keep vegetable_subcategory only when category is vegetable."""
         from django.core.exceptions import ValidationError
-        if self.category != 'vegetable' and self.vegetable_subcategory:
+        if self.category != IngredientCategory.VEGETABLE and self.vegetable_subcategory:
             raise ValidationError(
-                'vegetable_subcategory può essere impostato solo se category è "vegetable".'
+                'vegetable_subcategory can be set only when category is "vegetable".'
             )
 
 # ─────────────────────────────────────────
 # MEAL
 # ─────────────────────────────────────────
 
+class MealGenre(models.TextChoices):
+    PASTA_CEREALI = 'pasta_cereali', 'Pasta / Cereali'
+    POLLO_TACCHINO = 'pollo_tacchino', 'Pollo / Tacchino'
+    PESCE = 'pesce', 'Pesce'
+    CARNI_ROSSE = 'carni_rosse', 'Carni rosse'
+    INSACCATI = 'insaccati', 'Insaccati'
+    UOVA = 'uova', 'Uova'
+    LEGUMI = 'legumi', 'Legumi'
+    VERDURA = 'verdura', 'Verdura'
+    FORMAGGIO = 'formaggio', 'Formaggio'
+    ZUPPE = 'zuppe', 'Zuppe'
+    INSALATE = 'insalate', 'Insalate'
+    PIADINE = 'piadine', 'Piadine'
+
+
 class Meal(models.Model):
     owner       = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='meals')
     is_system   = models.BooleanField(default=False)
-    name        = models.CharField(max_length=100)
+    name        = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    genre = models.CharField(
+        max_length=32,
+        choices=MealGenre.choices,
+        blank=True,
+        default='',
+        help_text='Household recipe group (Pasta / Pollo / Pesce / …).',
+    )
     ingredients = models.ManyToManyField(Ingredient, through='MealIngredient')
 
     def __str__(self):
@@ -343,68 +407,33 @@ class Meal(models.Model):
 
 
 class MealIngredient(models.Model):
-    """Tabella ponte Meal ↔ Ingredient: quantità base di riferimento + porzioni per membro."""
+    """Meal ↔ Ingredient: grams for one shared plate."""
     meal = models.ForeignKey(Meal, on_delete=models.CASCADE, related_name='meal_ingredients')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='meal_ingredients')
     grams = models.DecimalField(
         max_digits=6,
         decimal_places=1,
         validators=[MinValueValidator(0)],
-        help_text='Porzione di riferimento (base). Per pasti famiglia: grammi effettivi per persona in MealIngredientMemberPortion.',
+        help_text='Grams on the shared plate (same for every household member).',
     )
 
     class Meta:
-        unique_together = [('meal', 'ingredient')]  # stesso ingrediente non appare due volte
+        unique_together = [('meal', 'ingredient')]
 
     def __str__(self):
         return f"{self.meal.name} — {self.ingredient.name} {self.grams}g"
 
 
-class MealIngredientMemberPortion(models.Model):
-    """Grammi di questo ingrediente per un commensale (stesso pasto, porzioni diverse)."""
-    meal_ingredient = models.ForeignKey(
-        MealIngredient,
-        on_delete=models.CASCADE,
-        related_name='member_portions',
-    )
-    household_member = models.ForeignKey(
-        HouseholdMember,
-        on_delete=models.CASCADE,
-        related_name='meal_ingredient_portions',
-    )
-    grams = models.DecimalField(max_digits=6, decimal_places=1, validators=[MinValueValidator(0)])
-
-    class Meta:
-        unique_together = [('meal_ingredient', 'household_member')]
-
-    def __str__(self):
-        return f"{self.meal_ingredient} → {self.household_member.display_name}: {self.grams}g"
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        meal = self.meal_ingredient.meal
-        member = self.household_member
-        if meal.owner_id is None:
-            raise ValidationError(
-                {'meal_ingredient': 'I pasti di sistema non supportano porzioni per membro.'}
-            )
-        if member.household.owner_id != meal.owner_id:
-            raise ValidationError(
-                {'household_member': 'Il membro deve appartenere al nucleo del proprietario del pasto.'}
-            )
-
-
 # ─────────────────────────────────────────
-# PIANO SETTIMANALE
+# WEEK PLAN
 # ─────────────────────────────────────────
 
 class WeekPlan(models.Model):
     owner            = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='week_plans')
     is_system        = models.BooleanField(default=False)
-    name             = models.CharField(max_length=100, blank=True, help_text='Nome del piano, es: "Piano proteico 2000kcal"')
-    week_start       = models.DateField(null=True, blank=True, help_text='Lunedì della settimana — null per piani template')
-    nutrition_target = models.ForeignKey(NutritionTarget, null=True, blank=True, on_delete=models.PROTECT, related_name='week_plans')
+    name             = models.CharField(max_length=100, blank=True, help_text='Plan name, e.g. "High-protein 2000 kcal"')
+    week_start       = models.DateField(null=True, blank=True, help_text='Monday of the week — null for template plans')
+    nutrition_target = models.ForeignKey(NutritionTarget, null=True, blank=True, on_delete=models.SET_NULL, related_name='week_plans')
     created_at       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -420,24 +449,22 @@ class WeekPlan(models.Model):
         if self.is_system:
             return f"[SYS] {self.name}"
         owner_label = self.owner.username if self.owner else '—'
-        return f"{owner_label} — settimana del {self.week_start}"
+        return f"{owner_label} — week of {self.week_start}"
 
 
 class WeekDay(models.IntegerChoices):
-    MONDAY    = 0, 'Lunedì'
-    TUESDAY   = 1, 'Martedì'
-    WEDNESDAY = 2, 'Mercoledì'
-    THURSDAY  = 3, 'Giovedì'
-    FRIDAY    = 4, 'Venerdì'
-    SATURDAY  = 5, 'Sabato'
-    SUNDAY    = 6, 'Domenica'
+    MONDAY    = 0, 'Monday'
+    TUESDAY   = 1, 'Tuesday'
+    WEDNESDAY = 2, 'Wednesday'
+    THURSDAY  = 3, 'Thursday'
+    FRIDAY    = 4, 'Friday'
+    SATURDAY  = 5, 'Saturday'
+    SUNDAY    = 6, 'Sunday'
 
 
 class DayProfile(models.Model):
     """
-    Tipo di giorno definito dal planner (es. «Allenamento», «Riposo», «Lavoro notturno»).
-    Usato per classificare ogni colonna del piano settimanale; in seguito potrai legare
-    target nutrizionali o pasti diversi a ciascun tipo (logica applicativa separata).
+    Day type defined by the planner (e.g. Training, Rest). Unused; ON/OFF lives on WeekPlanDayKind.
     """
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='day_profiles')
     name = models.CharField(max_length=50)
@@ -445,7 +472,7 @@ class DayProfile(models.Model):
     notes = models.CharField(
         max_length=240,
         blank=True,
-        help_text='Opzionale: promemoria (es. più carboidrati post-workout).',
+        help_text='Optional reminder (e.g. more carbs after a workout).',
     )
 
     class Meta:
@@ -457,16 +484,21 @@ class DayProfile(models.Model):
 
 
 class WeekPlanDayKind(models.Model):
-    """Associa un giorno del piano (0=lunedì … 6=domenica) a un tipo di giorno."""
+    """ON or OFF for one weekday of a week plan."""
     week_plan = models.ForeignKey(WeekPlan, on_delete=models.CASCADE, related_name='day_kinds')
     day = models.IntegerField(choices=WeekDay.choices)
+    kind = models.CharField(
+        max_length=8,
+        choices=DayKind.choices,
+        default=DayKind.OFF,
+    )
     day_profile = models.ForeignKey(
         DayProfile,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name='week_plan_day_assignments',
-        help_text='Vuoto = giorno non etichettato.',
+        help_text='Unused; kept for old rows.',
     )
 
     class Meta:
@@ -474,96 +506,41 @@ class WeekPlanDayKind(models.Model):
 
     def __str__(self):
         label = WeekDay(self.day).label
-        profile = self.day_profile.name if self.day_profile_id else '—'
-        return f"{self.week_plan} — {label}: {profile}"
+        return f"{self.week_plan} — {label}: {self.get_kind_display()}"
 
     def clean(self):
         from django.core.exceptions import ValidationError
 
         if self.day_profile_id and self.week_plan.owner_id != self.day_profile.owner_id:
             raise ValidationError(
-                {'day_profile': 'Il tipo giorno deve appartenere allo stesso planner del piano.'}
+                {'day_profile': 'The day type must belong to the same planner as the week plan.'}
             )
-
-
-class DayProfileMemberModifier(models.Model):
-    """
-    Fattore moltiplicativo per macro, specifico per combinazione tipo-giorno × commensale.
-    Esempio: membro "Mario" in giorno "Allenamento" → kcal_factor=1.15, protein_factor=1.10.
-    Assenza di riga per una combinazione = nessuna variazione (fattore 1.0 implicito in UI/calcolo).
-    """
-    day_profile = models.ForeignKey(
-        DayProfile,
-        on_delete=models.CASCADE,
-        related_name='member_modifiers',
-    )
-    household_member = models.ForeignKey(
-        HouseholdMember,
-        on_delete=models.CASCADE,
-        related_name='day_modifiers',
-    )
-    kcal_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
-    protein_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
-    carbs_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
-    fat_factor = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
-
-    class Meta:
-        unique_together = [('day_profile', 'household_member')]
-
-    def __str__(self):
-        return f"{self.day_profile.name} × {self.household_member.display_name}"
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        if self.day_profile_id and self.household_member_id:
-            if self.day_profile.owner_id != self.household_member.household.owner_id:
-                raise ValidationError(
-                    'Il tipo giorno e il commensale devono appartenere allo stesso planner.'
-                )
-        for field_name in ('kcal_factor', 'protein_factor', 'carbs_factor', 'fat_factor'):
-            value = getattr(self, field_name)
-            if value is not None and value <= 0:
-                raise ValidationError({field_name: 'Il fattore deve essere maggiore di zero.'})
 
 
 class WeekPlanSlot(models.Model):
-    """Singolo slot del piano: giorno × slot pasto × meal assegnata."""
+    """One cell of the week plan: weekday × meal slot × category, optional dish."""
     week_plan = models.ForeignKey(WeekPlan, on_delete=models.CASCADE, related_name='slots')
     day       = models.IntegerField(choices=WeekDay.choices)
     meal_slot = models.ForeignKey(MealSlot, on_delete=models.PROTECT, related_name='slots')
-    meal      = models.ForeignKey(Meal, on_delete=models.PROTECT, related_name='slots')
-
-    class Meta:
-        unique_together = [('week_plan', 'day', 'meal_slot')]  # no duplicati
-
-    def __str__(self):
-        return f"{self.week_plan} — {self.get_day_display()} — {self.meal_slot.name}"
-
-
-class WeekPlanSlotAttendance(models.Model):
-    """Chi partecipa a quel pasto nello slot (per calcoli lista spesa / macro solo presenti)."""
-    slot = models.ForeignKey(WeekPlanSlot, on_delete=models.CASCADE, related_name='attendances')
-    household_member = models.ForeignKey(
-        HouseholdMember,
-        on_delete=models.CASCADE,
-        related_name='slot_attendances',
+    genre = models.CharField(
+        max_length=32,
+        choices=MealGenre.choices,
+        blank=True,
+        default='',
+        help_text='Recipe category chosen first (Soups, Fish, …).',
+    )
+    meal = models.ForeignKey(
+        Meal,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='slots',
+        help_text='Specific dish; optional until a recipe is chosen or Fill runs.',
     )
 
     class Meta:
-        unique_together = [('slot', 'household_member')]
+        unique_together = [('week_plan', 'day', 'meal_slot')]
 
     def __str__(self):
-        return f"{self.slot} — {self.household_member.display_name}"
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        owner_id = self.slot.week_plan.owner_id
-        if owner_id is None:
-            raise ValidationError({'slot': 'Slot senza proprietario non supportato.'})
-        if self.household_member.household.owner_id != owner_id:
-            raise ValidationError(
-                {'household_member': 'Il membro deve appartenere al nucleo del proprietario del piano.'}
-            )
+        return f"{self.week_plan} — {self.get_day_display()} — {self.meal_slot.name}"
 

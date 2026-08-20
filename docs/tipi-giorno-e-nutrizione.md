@@ -1,34 +1,32 @@
-# Tipi di giorno e nutrizione (design)
+# Day types and nutrition — ON / OFF
 
-## Cosa c’è oggi nel codice
+**Status (2026-08):** The household uses **two targets** (ON / OFF). Defaults are 1700 / 1500 kcal; change kcal and % ranges in Django admin. Each weekday on the week plan is **ON** or **OFF**. Fill, slot budgets, and expected totals use that day’s target. Shopping is still one plate × household size (no attendance).
 
-- **`DayProfile`**: etichette definite dal planner (es. «Riposo», «Allenamento»). Un elenco per utente.
-- **`WeekPlanDayKind`**: per ogni **settimana** (`WeekPlan`) e ogni **giorno** (0 = lunedì … 6 = domenica), quale `DayProfile` applicare, oppure vuoto (giorno non classificato).
-- **UI**: pagina `/tipi-giorno/` (CRUD tipi), barra sul **piano settimanale** con 7 select + salva.
+Do not rebuild per-member modifiers, attendance, or extra custom targets.
 
-Alla **prima** visita che richiede i tipi giorno, se non ne hai nessuno vengono creati **Riposo** e **Allenamento** (`ensure_default_day_profiles` in `core/views.py`).
+---
 
-## Perché separare «tipo giorno» dai target
+## Targets
 
-Il tipo di giorno descrive **il contesto** (allenamento sì/no, turno, ecc.). I **target nutrizionali** restano entità proprie (`NutritionTarget`); ogni **commensale** ha un FK opzionale `nutrition_target` verso un target del planner (più persone possono condividere lo stesso target). Collegarli così evita duplicare righe target ogni settimana.
+| Kind | kcal | Protein | Fat | Carbs |
+| --- | --- | --- | --- | --- |
+| **ON** | 1700 | 15–25% | 20–25% | 45–50% |
+| **OFF** | 1500 | 15–25% | 20–25% | 45–50% |
 
-## Come evolvere (macro / diete diverse per tipo giorno)
+Gram fields on `NutritionTarget` are **midpoints** of those ranges (filler needs a single number). Defaults are seeded by `core/targets.py` (`ensure_on_off_targets`) if the rows are missing; later admin edits are kept. Change kcal and % in `/admin/` — grams update on save.
 
-Strade comuni (da scegliere in base a complessità desiderata):
+Default weekday: **OFF**.
 
-1. **Target multipli per membro + profilo giorno**  
-   Estendere `NutritionTarget` (o tabella ponte) con `day_profile` opzionale: stesso membro ha target «base» e target «allenamento». In aggregazione giornaliera si usa il target associato al `DayProfile` del giorno letto da `WeekPlanDayKind`.
+## Schema
 
-2. **Moltiplicatori / offset sul target base**  
-   Tabella `DayProfileNutritionModifier` (es. `kcal_factor = 1.1` per «Allenamento»). I macro del giorno = target collegato al membro × fattore del profilo del giorno.
+- **`NutritionTarget.kind`**: `on` or `off` (unique). Only these two rows should exist.
+- **`WeekPlanDayKind.kind`**: ON/OFF for one weekday of a `WeekPlan`.
+- **`DayProfile`**: unused leftover labels; do not wire back into the UI.
 
-3. **Pasti suggeriti per profilo** (non solo numeri)  
-   Regole fisse: se giorno = Allenamento → priorità pasti ricchi di carboidrati; se Riposo → … (solo algoritmi, niente ML).
+## Totals
 
-La **lista spesa** e i **totali settimanali** dovrebbero usare, per ogni data, il tipo giorno risolto da `WeekPlanDayKind` + presenza commensali + porzioni.
+Expected for a day = that day’s ON or OFF target × household size. Week expected sums the seven days.
 
-## Riferimenti codice
+## Portions
 
-- Modelli: `core/models.py` — `DayProfile`, `WeekPlanDayKind`.
-- Vista tipi: `day_profiles_manage`, URL `tipi-giorno/`.
-- Vista piano: `week_plan_current` — `form_id=day_kinds`.
+Lunch and dinner grams are computed from that day’s ON/OFF target (`core/planning.py`). Catalog/recipe weights are ignored. Each slot starts at half of the day (unless `MealSlotTarget` overrides the share). When both meals exist, they are scaled together so combined kcal/protein/carbs/fat land in **85–100%** of the day’s target.

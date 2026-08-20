@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,14 +12,13 @@
     <link rel="manifest" href="{% url 'pwa_manifest' %}">
     <link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
 
-    <!-- Tailwind CSS (CDN Play — solo sviluppo) -->
+    <!-- Tailwind CSS (CDN Play — development only) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
 
-    <!-- NAVBAR -->
     <nav class="bg-white shadow-sm border-b border-gray-200">
     <div class="max-w-5xl mx-auto px-4 py-3">
 
@@ -27,31 +26,15 @@
 
         <div class="flex items-center justify-between">
 
-            <a href="/" class="font-bold text-lg text-emerald-600">🥗 Meal Planner</a>
+            <a href="/" class="font-bold text-lg text-emerald-600">Meal Planner</a>
 
-            <!-- Link visibili solo da tablet in su -->
             <div class="hidden md:flex items-center gap-4 text-sm">
-                {% if user.is_authenticated %}
-                    <span class="text-gray-500">{{ user.username }}</span>
-                    <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Piano settimana</a>
-                    <a href="{% url 'core:nutrition_target_create' %}" class="text-gray-700 hover:text-gray-900 font-medium">Nuovo target</a>
-                    <a href="{% url 'core:day_profiles' %}" class="text-gray-700 hover:text-gray-900 font-medium">Tipi giorno</a>
-                    <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Famiglia</a>
-                    <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
-                    <form method="post" action="{% url 'logout' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="text-red-500 hover:text-red-700">Esci</button>
-                    </form>
-                {% else %}
-                    <a href="{% url 'login' %}" class="text-gray-600 hover:text-gray-900">Accedi</a>
-                    <a href="{% url 'core:register' %}"
-                       class="bg-emerald-500 text-white px-3 py-1.5 rounded-md hover:bg-emerald-600">
-                        Registrati
-                    </a>
-                {% endif %}
+                <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Week plan</a>
+                <a href="{% url 'core:shopping_list' %}" class="text-gray-700 hover:text-gray-900 font-medium">Shopping list</a>
+                <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Household</a>
+                <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
             </div>
 
-            <!-- Hamburger: visibile solo sotto md -->
             <label for="nav-toggle" class="md:hidden cursor-pointer p-2">
                 <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -61,34 +44,17 @@
 
         </div>
 
-        <!-- Menu mobile a comparsa -->
         <div class="peer-checked:flex hidden md:hidden flex-col gap-3 mt-3 pb-2 text-sm">
-            {% if user.is_authenticated %}
-                <span class="text-gray-500">👤 {{ user.username }}</span>
-                <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Piano settimana</a>
-                <a href="{% url 'core:nutrition_target_create' %}" class="text-gray-700 hover:text-gray-900 font-medium">Nuovo target</a>
-                <a href="{% url 'core:day_profiles' %}" class="text-gray-700 hover:text-gray-900 font-medium">Tipi giorno</a>
-                <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Famiglia</a>
-                <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
-                <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-red-500 hover:text-red-700 text-left">Esci</button>
-                </form>
-            {% else %}
-                <a href="{% url 'login' %}" class="text-gray-600 hover:text-gray-900">Accedi</a>
-                <a href="{% url 'core:register' %}"
-                   class="bg-emerald-500 text-white px-3 py-1.5 rounded-md text-center hover:bg-emerald-600">
-                    Registrati
-                </a>
-            {% endif %}
+            <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Week plan</a>
+            <a href="{% url 'core:shopping_list' %}" class="text-gray-700 hover:text-gray-900 font-medium">Shopping list</a>
+            <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Household</a>
+            <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
         </div>
     </div>
     </nav>
 
-    <!-- CONTENUTO PRINCIPALE -->
     <main class="max-w-5xl mx-auto px-4 py-8">
 
-        <!-- Messaggi Django (es. login riuscito) -->
         {% if messages %}
             <div class="mb-6 space-y-2">
                 {% for message in messages %}
@@ -107,11 +73,10 @@
 
     {% block extra_js %}{% endblock %}
     <script>
-      /* Registrazione Service Worker: solo stesso origine, dopo load (non blocca first paint). */
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('{% url "pwa_service_worker" %}', { scope: '/' }).catch(function (err) {
-            console.warn('Service worker non registrato:', err);
+            console.warn('Service worker not registered:', err);
           });
         });
       }

@@ -1,0 +1,179 @@
+name,category,subcategory,kcal,protein,carbs,fat,fiber,sugars,saturated_fat,salt,tags,seasons
+Petto di pollo,protein,,110,23,0,1.5,0,0,0.4,0.07,,all
+Coscia di pollo,protein,,177,19.2,0,10.9,0,0,3.1,0.18,,all
+Petto di tacchino,protein,,104,24,0,1,0,0,0.3,0.1,,all
+Macinato di tacchino,protein,,149,20,0,8,0,0,2.2,0.12,,all
+Manzo magro,protein,,137,21,0,5.5,0,0,2.2,0.15,,all
+Macinato di manzo,protein,,212,19,0,15,0,0,6,0.18,,all
+Lonza di maiale,protein,,143,21,0,6,0,0,2.1,0.14,,all
+Macinato di maiale,protein,,263,17,0,21,0,0,7.5,0.16,,all
+Vitello,protein,,172,24,0,8,0,0,3,0.15,,all
+Coniglio,protein,,136,20,0,5.6,0,0,1.7,0.1,,all
+Prosciutto cotto,protein,,145,21,1.5,6,0,1.5,2,2.2,,all
+Bresaola,protein,,151,32,0,2,0,0,0.7,4.5,,all
+Uova intere,protein,,143,13,0.7,10,0,0.7,3.1,0.14,"vegetarian,egg",all
+Albumi,protein,,52,11,0.7,0.2,0,0.7,0,0.16,vegetarian,all
+Salmone,protein,,208,20,0,13,0,0,3.1,0.06,fish,all
+Merluzzo,protein,,82,18,0,0.7,0,0,0.1,0.2,fish,all
+Spigola,protein,,97,18.4,0,2,0,0,0.5,0.18,fish,all
+Orata,protein,,124,19,0,5.4,0,0,1.4,0.16,fish,all
+Trota,protein,,141,20,0,6.2,0,0,1.4,0.14,fish,all
+Tonno al naturale,protein,,116,26,0,1,0,0,0.2,0.8,fish,all
+Tonno all'olio,protein,,198,29,0,8,0,0,1.4,0.9,fish,all
+Sgombro,protein,,205,19,0,14,0,0,3.3,0.2,fish,all
+Sardine,protein,,208,25,0,11.5,0,0,2.4,0.9,fish,all
+Gamberi,protein,,99,24,0.2,0.3,0,0,0.1,0.4,fish,all
+Cozze,protein,,86,12,3.7,2.2,0,0,0.4,0.7,fish,all
+Calamari,protein,,92,16,3.1,1.4,0,0,0.4,0.3,fish,all
+Tofu,protein,,117,12,1.5,7,0.5,0.6,1,0.02,vegan,all
+Tempeh,protein,,193,19,9,11,0,0,2.2,0.02,vegan,all
+Seitan,protein,,370,75,14,1.9,0.6,0,0.3,0.7,"vegan,gluten",all
+Fiocchi di latte,protein,,98,11,3.4,4.3,0,2.7,1.7,0.3,"vegetarian,lactose",all
+Yogurt greco 0%,protein,,59,10.3,3.6,0.4,0,3.6,0.1,0.1,"vegetarian,lactose",all
+Edamame,protein,,122,11,9,5,5.2,2.2,0.6,0.01,vegan,all
+Spinaci,vegetable,leafy,23,2.9,1.4,0.4,2.2,0.4,0.06,0.16,vegan,"spring,winter"
+Zucchine,vegetable,fruit_veg,17,1.2,2.5,0.3,1.1,2.5,0.06,0,vegan,summer
+Broccoli,vegetable,flower,34,2.8,7,0.4,2.6,1.7,0.1,0.03,vegan,"autumn,winter"
+Cavolfiore,vegetable,flower,25,1.9,5,0.3,2,1.9,0.1,0.03,vegan,"autumn,winter"
+Pomodoro,vegetable,fruit_veg,18,0.9,3.9,0.2,1.2,2.6,0.03,0.01,vegan,"summer,autumn"
+Pomodorini,vegetable,fruit_veg,18,0.9,3.9,0.2,1.2,2.6,0.03,0.01,vegan,"summer,autumn"
+Peperone,vegetable,fruit_veg,31,1,6,0.3,2.1,4.2,0.06,0,vegan,"summer,autumn"
+Carota,vegetable,root,41,0.9,9.6,0.2,2.8,4.7,0.04,0.07,vegan,all
+Fagiolini,vegetable,fruit_veg,31,1.8,7,0.1,2.7,3.3,0.02,0,vegan,summer
+Cetriolo,vegetable,fruit_veg,15,0.7,3.6,0.1,0.5,1.7,0.04,0,vegan,summer
+Lattuga,vegetable,leafy,15,1.4,2.9,0.2,1.3,0.8,0.02,0.03,vegan,all
+Rucola,vegetable,leafy,25,2.6,3.7,0.7,1.6,2.1,0.09,0.03,vegan,"spring,autumn"
+Cavolo riccio,vegetable,leafy,49,4.3,9,0.9,3.6,2.3,0.09,0.04,vegan,"autumn,winter"
+Verza,vegetable,leafy,27,2,6,0.1,3.1,2.3,0.02,0.02,vegan,"autumn,winter"
+Cavolo rosso,vegetable,leafy,31,1.4,7.4,0.2,2.1,3.8,0.02,0.03,vegan,"autumn,winter"
+Melanzana,vegetable,fruit_veg,25,1,6,0.2,3,3.5,0.03,0,vegan,summer
+Funghi champignon,vegetable,stem,22,3.1,3.3,0.3,1,2,0.05,0.01,vegan,all
+Cipolla,vegetable,bulb,40,1.1,9.3,0.1,1.7,4.2,0.04,0.01,vegan,all
+Aglio,vegetable,bulb,149,6.4,33,0.5,2.1,1,0.09,0.02,vegan,all
+Porro,vegetable,stem,61,1.5,14,0.3,1.8,3.9,0.04,0.02,vegan,"autumn,winter"
+Finocchio,vegetable,bulb,31,1.2,7.3,0.2,3.1,3.9,0.09,0.13,vegan,"autumn,winter"
+Sedano,vegetable,stem,16,0.7,3,0.2,1.6,1.3,0.04,0.08,vegan,all
+Asparagi,vegetable,stem,20,2.2,3.9,0.1,2.1,1.9,0.04,0,vegan,spring
+Carciofo,vegetable,flower,47,3.3,11,0.2,5.4,1,0.04,0.09,vegan,spring
+Zucca,vegetable,fruit_veg,26,1,6.5,0.1,0.5,2.8,0.05,0,vegan,autumn
+Barbabietola,vegetable,root,43,1.6,10,0.2,2.8,6.8,0.03,0.08,vegan,"autumn,winter"
+Piselli,vegetable,legume,81,5.4,14.5,0.4,5.1,5.7,0.07,0,vegan,spring
+Mais,vegetable,fruit_veg,86,3.3,19,1.2,2.7,6.3,0.2,0,vegan,summer
+Cavoletti di Bruxelles,vegetable,flower,43,3.4,9,0.3,3.8,2.2,0.06,0.03,vegan,winter
+Bietole,vegetable,leafy,19,1.8,3.7,0.2,1.6,1.1,0.03,0.21,vegan,"autumn,winter"
+Radicchio,vegetable,leafy,23,1.4,4.5,0.3,0.9,0.6,0.07,0.02,vegan,"autumn,winter"
+Lenticchie secche,vegetable,legume,353,25.4,52,1.1,27,2,0.2,0.01,vegan,all
+Lenticchie in scatola,vegetable,legume,82,6.9,14,0.4,3.7,1.2,0.1,0.5,vegan,all
+Ceci secchi,vegetable,legume,364,19,61,6,17,11,0.6,0.02,vegan,all
+Ceci in scatola,vegetable,legume,119,7.2,15,2.5,4.4,2.6,0.3,0.5,vegan,all
+Fagioli cannellini secchi,vegetable,legume,336,23.4,60,1.5,15,2.1,0.2,0.01,vegan,all
+Fagioli cannellini in scatola,vegetable,legume,90,6,13,0.5,4.3,0.3,0.1,0.5,vegan,all
+Riso basmati,carb,,356,7.5,78,0.9,0.4,0.1,0.25,0,vegan,all
+Riso integrale,carb,,370,7.9,77,2.9,3.5,0.7,0.6,0.01,vegan,all
+Riso arborio,carb,,358,6.5,80,0.5,1.4,0.1,0.1,0,vegan,all
+Pasta di semola,carb,,353,11,72,1.8,2.7,3,0.3,0,"vegan,gluten",all
+Pasta integrale,carb,,348,13,62,2.5,8,3.2,0.4,0.01,"vegan,gluten",all
+Patata,carb,,77,2,17,0.1,2.2,0.8,0.03,0.01,vegan,all
+Patata dolce,carb,,86,1.6,20,0.1,3,4.2,0.02,0.06,vegan,all
+Polenta,carb,,370,7,79,1.4,1.6,0.6,0.2,0,vegan,all
+Couscous,carb,,376,13,72,0.6,5,0.1,0.1,0.01,"vegan,gluten",all
+Quinoa,carb,,368,14,64,6,7,4.9,0.7,0.01,vegan,all
+Orzo perlato,carb,,352,10,78,1.2,16,0.8,0.2,0.01,"vegan,gluten",all
+Fiocchi d'avena,carb,,379,13,67,6.5,10,1,1.1,0.02,vegan,all
+Pane bianco,carb,,265,9,49,3.2,2.7,5,0.6,1.2,"vegan,gluten",all
+Pane integrale,carb,,247,13,41,3.4,7,4,0.7,1.1,"vegan,gluten",all
+Farro,carb,,335,15,67,2.5,7,2.7,0.4,0.01,"vegan,gluten",all
+Bulgur,carb,,342,12,76,1.3,13,0.4,0.2,0.02,"vegan,gluten",all
+Gnocchi,carb,,133,3.5,27,0.2,1.3,0.5,0.1,0.9,"vegan,gluten",all
+Olio d'oliva,fat,,884,0,0,100,0,0,14,0,vegan,all
+Olio di semi di girasole,fat,,884,0,0,100,0,0,10,0,vegan,all
+Burro,fat,,717,0.9,0.1,81,0,0.1,51,0.02,"vegetarian,lactose",all
+Olio di cocco,fat,,862,0,0,100,0,0,87,0,vegan,all
+Avocado,fat,,160,2,9,15,6.7,0.7,2.1,0.01,vegan,all
+Olive verdi,fat,,145,1,4,15,3.3,0.5,2,3.3,vegan,all
+Mandorle,fat,,579,21,22,50,12.5,4.4,3.8,0,"vegan,nuts",all
+Noci,fat,,654,15,14,65,6.7,2.6,6.1,0,"vegan,nuts",all
+Arachidi,fat,,567,26,16,49,8.5,4.2,6.8,0.02,"vegan,nuts",all
+Burro di arachidi,fat,,588,25,20,50,6,9,10,1,"vegan,nuts",all
+Tahina,fat,,595,17,21,54,9.3,0.5,7.5,0.1,vegan,all
+Latte parzialmente scremato,dairy,,46,3.3,4.8,1.6,0,4.8,1,0.1,"vegetarian,lactose",all
+Mozzarella,dairy,,280,19,2.2,22,0,1,13,0.6,"vegetarian,lactose",all
+Parmigiano,dairy,,392,33,3.2,26,0,0.9,17,1.6,"vegetarian,lactose",all
+Ricotta,dairy,,174,11,3,13,0,3,8,0.3,"vegetarian,lactose",all
+Feta,dairy,,264,14,4.1,21,0,4.1,15,2.2,"vegetarian,lactose",all
+Mela,fruit,,52,0.3,14,0.2,2.4,10,0.03,0,vegan,"autumn,winter"
+Banana,fruit,,89,1.1,23,0.3,2.6,12,0.11,0,vegan,all
+Arancia,fruit,,47,0.9,12,0.1,2.4,9,0.02,0,vegan,winter
+Limone,fruit,,29,1.1,9,0.3,2.8,2.5,0.04,0,vegan,all
+Fragola,fruit,,32,0.7,8,0.3,2,4.9,0.02,0,vegan,spring
+Kiwi,fruit,,61,1.1,15,0.5,3,9,0.03,0,vegan,winter
+Pera,fruit,,57,0.4,15,0.1,3.1,10,0.01,0,vegan,autumn
+Mirtilli,fruit,,57,0.7,14,0.3,2.4,10,0.02,0,vegan,summer
+Salmone affumicato,protein,,189,25,0,9.5,0,0,2.8,3,fish,all
+Seppie,protein,,79,16,0.7,0.7,0,0,0.2,0.3,fish,all
+Tonno fresco,protein,,144,23,0,5,0,0,1.2,0.1,fish,all
+Pesce spada,protein,,144,20,0,6.7,0,0,1.6,0.2,fish,all
+Macinato di pollo,protein,,143,17,0,8,0,0,2.2,0.15,,all
+Hamburger di tacchino,protein,,150,17,3,8,0,0.5,2.2,0.8,,all
+Hamburger di manzo,protein,,250,17,0,20,0,0,8,0.7,,all
+Braciola,protein,,231,24,0,14,0,0,5,0.2,,all
+Salsiccia,protein,,301,16,1.5,26,0,0.5,9.5,1.8,,all
+Prosciutto crudo,protein,,220,26,0.5,13,0,0.5,4.5,5.5,,all
+Pancetta,protein,,407,13,1,39,0,0.4,14,3.5,,all
+Guanciale,protein,,580,13,0.5,59,0,0,21,4.2,,all
+Lardo,protein,,890,1,0,99,0,0,35,1.5,,all
+Acciughe,protein,,210,29,0,10,0,0,2.5,14,fish,all
+Tortellini,carb,,280,12,38,8,2,1.5,3.5,1.4,"vegetarian,gluten",all
+Trofie,carb,,356,12,72,1.5,3,2,0.3,0.01,"vegan,gluten",all
+Piadina,carb,,310,8,46,10,2,1.5,3.5,1.3,"vegetarian,gluten",all
+Pane tipo 00,carb,,270,9,52,3,2.5,3,0.6,1.2,"vegan,gluten",all
+Pane di segale,carb,,259,8.5,48,3.3,6,3.5,0.5,1.3,"vegan,gluten",all
+Pangrattato,carb,,395,13,72,5,4,4,1,1.5,"vegan,gluten",all
+Farina,carb,,364,10,76,1,2.7,1.5,0.2,0,"vegan,gluten",all
+Risotto in busta,carb,,350,7,76,1.2,1.4,0.5,0.3,1.2,vegan,all
+Purè di patate,carb,,83,2,13,3,1,0.8,1.8,0.4,vegetarian,all
+Peperone rosso,vegetable,fruit_veg,31,1,6,0.3,2.1,4.2,0.06,0,vegan,"summer,autumn"
+Peperone giallo,vegetable,fruit_veg,27,1,6.3,0.2,0.9,2.4,0.03,0,vegan,"summer,autumn"
+Peperone verde,vegetable,fruit_veg,20,0.9,4.6,0.2,1.7,2.4,0.05,0,vegan,"summer,autumn"
+Datterino rosso,vegetable,fruit_veg,32,1.2,7,0.2,1.2,4.5,0.03,0.01,vegan,"summer,autumn"
+Datterino giallo,vegetable,fruit_veg,32,1.2,7,0.2,1.2,4.5,0.03,0.01,vegan,"summer,autumn"
+Pomodorino verde,vegetable,fruit_veg,23,1.2,5,0.2,1.1,3.2,0.03,0.01,vegan,summer
+Ravanelli,vegetable,root,16,0.7,3.4,0.1,1.6,1.9,0.03,0.04,vegan,spring
+Cavolo cappuccio,vegetable,leafy,25,1.3,6,0.1,2.5,3.2,0.03,0.02,vegan,"autumn,winter"
+Cipollotto,vegetable,bulb,32,1.8,7,0.2,2.6,2.3,0.03,0.02,vegan,spring
+Scalogno,vegetable,bulb,72,2.5,17,0.1,3.2,7.9,0.02,0.01,vegan,all
+Insalata mista,vegetable,leafy,17,1.3,3,0.2,1.5,1.2,0.03,0.03,vegan,all
+Verdure a foglia larga,vegetable,leafy,22,2.2,3.5,0.3,2,1.1,0.05,0.12,vegan,all
+Verdure cotte,vegetable,fruit_veg,40,1.5,7,0.5,2.5,3,0.1,0.2,vegan,all
+Mix soffritto,vegetable,bulb,35,1.2,7,0.2,2,3.5,0.04,0.05,vegan,all
+Legumi misti cotti,vegetable,legume,90,6.5,13,0.8,4.5,1.5,0.1,0.4,vegan,all
+Peperoncino,vegetable,fruit_veg,40,1.9,9,0.4,1.5,5.3,0.04,0.01,vegan,summer
+Prezzemolo,vegetable,leafy,36,3,6,0.8,3.3,0.9,0.1,0.06,vegan,all
+Salvia,vegetable,leafy,49,3.9,4,1.2,3.1,0.2,0.4,0.01,vegan,all
+Erba cipollina,vegetable,leafy,30,3.3,4.4,0.7,2.5,1.9,0.15,0.01,vegan,all
+Capperi,vegetable,fruit_veg,23,2.4,5,0.9,3.2,0.4,0.2,4.8,vegan,all
+Olive nere,fat,,171,1.4,4,18,3.2,0,2.4,3.3,vegan,all
+Pesto,fat,,454,7,6,45,2,2,7,2.5,vegetarian,all
+Besciamella,dairy,,110,3,8,7,0.2,4,4.5,0.4,"vegetarian,lactose",all
+Panna,dairy,,337,2.4,3,35,0,3,22,0.08,"vegetarian,lactose",all
+Scamorza,dairy,,330,25,1,25,0,1,16,1.5,"vegetarian,lactose",all
+Stracchino,dairy,,272,16,1,23,0,1,14,0.8,"vegetarian,lactose",all
+Robiola,dairy,,335,17,2,29,0,2,18,0.7,"vegetarian,lactose",all
+Pecorino,dairy,,387,26,0.2,32,0,0.2,21,3.2,"vegetarian,lactose",all
+Philadelphia protein,dairy,,150,11,4,10,0,3,6.5,0.8,"vegetarian,lactose",all
+Formaggio stagionato,dairy,,392,33,3.2,26,0,0.9,17,1.6,"vegetarian,lactose",all
+Salsa di pomodoro,other,,29,1.5,6,0.2,1.5,4,0.03,0.4,vegan,all
+Salsa all'aglio,other,,180,2,4,17,0.4,1,2.5,0.8,vegan,all
+Ketchup,other,,112,1.3,25,0.1,0.3,22,0.02,1.8,vegan,all
+Miele,other,,304,0.3,82,0,0,82,0,0.01,vegetarian,all
+Salsa di soia,other,,53,8,5,0.1,0.8,0.4,0,5.7,vegan,all
+Senape,other,,66,4,6,4,3,1.5,0.2,2.2,vegan,all
+Senape in grani,other,,140,6,10,9,4,3,0.6,3.5,vegan,all
+Aceto,other,,18,0,0.4,0,0,0.4,0,0.01,vegan,all
+Curry,other,,325,14,56,14,53,3,1.6,0.05,vegan,all
+Anacardi,fat,,553,18,30,44,3.3,5.9,7.8,0.03,"vegan,nuts",all
+Pinoli,fat,,673,14,13,68,3.7,3.6,4.9,0,"vegan,nuts",all
+Semi misti,fat,,567,20,23,50,11,1.5,5,0.02,"vegan,nuts",all
+Pesca,fruit,,39,0.9,10,0.3,1.5,8,0.02,0,vegan,summer
+Melone,fruit,,34,0.8,8,0.2,0.9,8,0.05,0.02,vegan,summer
+
