@@ -1,0 +1,35 @@
+{% load core_extras %}
+<div class="week-plan-picker" data-genre-picker hidden>
+    <button type="button" class="week-plan-picker-backdrop" data-picker-dismiss aria-label="Close category list"></button>
+    <div class="week-plan-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="genre-picker-title">
+        <div class="mb-4 flex items-start justify-between gap-3">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Add a category</p>
+                <h3 id="genre-picker-title" class="text-lg font-semibold text-gray-900" data-picker-title>
+                    Choose a category
+                </h3>
+            </div>
+            <button type="button"
+                    class="rounded-full px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                    data-picker-dismiss>
+                Close
+            </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% for value, label in meal_genres %}
+            <button type="button"
+                    class="week-plan-chip shrink-0 rounded-full border px-3 py-2 text-sm font-medium"
+                    data-picker-genre="{{ value }}"
+                    data-tone="{{ value }}">
+                <span aria-hidden="true">{{ value|genre_emoji }}</span>
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+        <button type="button"
+                class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                data-picker-genre="">
+            No category
+        </button>
+    </div>
+</div>

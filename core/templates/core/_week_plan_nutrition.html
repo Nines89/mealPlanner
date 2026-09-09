@@ -1,0 +1,22 @@
+{% load core_extras %}
+{% if nutrition_totals.by_week %}
+<section class="mt-8">
+    <div class="mb-4">
+        <h2 class="text-sm font-semibold text-gray-900">Household totals</h2>
+        <p class="mt-1 text-xs text-gray-500">
+            Expected uses each day’s ON or OFF target × {{ member_count }}
+            {{ member_count|pluralize:"person,people" }}.
+            Effective is planned plates × the same count.
+        </p>
+    </div>
+
+    {% with totals=nutrition_totals.by_week %}
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {% include "core/_week_plan_stat.html" with label="Kcal" expected=totals.expected.kcal effective=totals.effective.kcal tone="amber" %}
+        {% include "core/_week_plan_stat.html" with label="Protein" expected=totals.expected.protein effective=totals.effective.protein suffix="g" tone="rose" %}
+        {% include "core/_week_plan_stat.html" with label="Carbs" expected=totals.expected.carbs effective=totals.effective.carbs suffix="g" tone="sky" %}
+        {% include "core/_week_plan_stat.html" with label="Fat" expected=totals.expected.fat effective=totals.effective.fat suffix="g" tone="emerald" %}
+    </div>
+    {% endwith %}
+</section>
+{% endif %}

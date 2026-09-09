@@ -25,6 +25,7 @@ from .models import (
 from .catalog import SYSTEM_MEALS, load_ingredient_specs, seed_catalog
 from .nutrition import compute_week_totals, plate_macros_for_meal
 from .planning import (
+    DAIRY_MIN_GRAMS,
     GENERATED_MEAL_MARKER,
     MIN_DAY_COVERAGE,
     MAX_DAY_COVERAGE,
@@ -32,6 +33,7 @@ from .planning import (
     PlateSelection,
     daily_macros,
     fit_day_coverage,
+    scale_ingredients_to_budget,
     scale_plate,
     shopping_list_for_plan,
 )
@@ -126,11 +128,13 @@ class WeekPlanMealGridTests(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
 
-    def _post_grid(self, assignments, form_id='meal_grid'):
+    def _post_grid(self, assignments, form_id='meal_grid', extra=None):
         data = {'form_id': form_id}
         for meal_slot in (self.lunch_slot, self.dinner_slot):
             for day in range(7):
                 data[f'genre_{day}_{meal_slot.id}'] = assignments.get((day, meal_slot.id), '')
+        if extra:
+            data.update(extra)
         return self.client.post(reverse('core:week_plan'), data)
 
     def test_user_can_assign_categories_to_week_grid(self):
@@ -235,6 +239,10 @@ class WeekPlanMealGridTests(TestCase):
         for ratio in _day_coverage_ratios(lunch.meal, dinner.meal, off).values():
             self.assertGreaterEqual(ratio, MIN_DAY_COVERAGE - slack)
             self.assertLessEqual(ratio, MAX_DAY_COVERAGE + slack)
+        page = self.client.get(reverse('core:week_plan'))
+        self.assertContains(page, 'data-has-meal')
+        self.assertContains(page, 'data-face-title')
+        self.assertContains(page, 'Zuppa di Carote')
 
     def test_build_leaves_category_when_catalog_is_empty(self):
         response = self._post_grid(
@@ -248,6 +256,112 @@ class WeekPlanMealGridTests(TestCase):
         )
         self.assertEqual(lunch.genre, MealGenre.UOVA)
         self.assertIsNone(lunch.meal)
+
+    def test_build_keeps_existing_dishes_and_fills_new_cells(self):
+        self._post_grid(
+            {
+                (0, self.lunch_slot.id): MealGenre.ZUPPE,
+                (0, self.dinner_slot.id): MealGenre.PESCE,
+            },
+            form_id='build',
+        )
+        week_plan = WeekPlan.objects.get(owner=self.user, week_start=monday_of_week())
+        monday_lunch = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=0, meal_slot=self.lunch_slot
+        )
+        monday_dinner = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=0, meal_slot=self.dinner_slot
+        )
+        lunch_id = monday_lunch.meal_id
+        dinner_id = monday_dinner.meal_id
+
+        response = self._post_grid(
+            {
+                (0, self.lunch_slot.id): MealGenre.ZUPPE,
+                (0, self.dinner_slot.id): MealGenre.PESCE,
+                (1, self.lunch_slot.id): MealGenre.ZUPPE,
+            },
+            form_id='build',
+        )
+
+        self.assertRedirects(response, reverse('core:week_plan'))
+        monday_lunch.refresh_from_db()
+        monday_dinner.refresh_from_db()
+        tuesday_lunch = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=1, meal_slot=self.lunch_slot
+        )
+        self.assertEqual(monday_lunch.meal_id, lunch_id)
+        self.assertEqual(monday_dinner.meal_id, dinner_id)
+        self.assertIsNotNone(tuesday_lunch.meal_id)
+        self.assertEqual(tuesday_lunch.meal.name, 'Zuppa di Carote')
+
+    def test_rebuild_slot_swaps_only_that_dish(self):
+        extra_soup = Meal.objects.create(
+            name='Zuppa di Cavolo Rosso',
+            is_system=True,
+            genre=MealGenre.ZUPPE,
+        )
+        _attach_template_plate(
+            extra_soup, self.chicken, self.rice, self.broccoli, self.oil
+        )
+        self._post_grid(
+            {
+                (0, self.lunch_slot.id): MealGenre.ZUPPE,
+                (0, self.dinner_slot.id): MealGenre.PESCE,
+            },
+            form_id='build',
+        )
+        week_plan = WeekPlan.objects.get(owner=self.user, week_start=monday_of_week())
+        lunch = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=0, meal_slot=self.lunch_slot
+        )
+        dinner = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=0, meal_slot=self.dinner_slot
+        )
+        previous_name = lunch.meal.name
+        dinner_id = dinner.meal_id
+
+        response = self._post_grid(
+            {
+                (0, self.lunch_slot.id): MealGenre.ZUPPE,
+                (0, self.dinner_slot.id): MealGenre.PESCE,
+            },
+            form_id='rebuild_slot',
+            extra={
+                'rebuild_day': '0',
+                'rebuild_slot_id': str(self.lunch_slot.id),
+            },
+        )
+
+        self.assertRedirects(
+            response, reverse('core:week_plan'), fetch_redirect_response=False
+        )
+        lunch.refresh_from_db()
+        dinner.refresh_from_db()
+        self.assertEqual(dinner.meal_id, dinner_id)
+        self.assertEqual(lunch.genre, MealGenre.ZUPPE)
+        self.assertNotEqual(lunch.meal.name, previous_name)
+        page = self.client.get(reverse('core:week_plan'))
+        self.assertContains(page, f'Switched to {lunch.meal.name}')
+
+    def test_rebuild_slot_needs_a_category(self):
+        response = self._post_grid(
+            {},
+            form_id='rebuild_slot',
+            extra={
+                'rebuild_day': '0',
+                'rebuild_slot_id': str(self.lunch_slot.id),
+            },
+        )
+        self.assertRedirects(response, reverse('core:week_plan'))
+        week_plan = WeekPlan.objects.get(owner=self.user, week_start=monday_of_week())
+        self.assertFalse(
+            WeekPlanSlot.objects.filter(
+                week_plan=week_plan,
+                day=0,
+                meal_slot=self.lunch_slot,
+            ).exists()
+        )
 
     def test_week_plan_has_build_and_no_fill_links(self):
         response = self.client.get(reverse('core:week_plan'))
@@ -266,6 +380,84 @@ class WeekPlanMealGridTests(TestCase):
         )
         self.assertEqual(kinds[0], DayKind.ON)
         self.assertEqual(kinds[5], DayKind.OFF)
+
+    def test_week_plan_board_exposes_day_cards_and_native_selects(self):
+        response = self.client.get(reverse('core:week_plan'))
+        self.assertContains(response, 'data-week-plan')
+        self.assertContains(response, 'data-genre-chip')
+        self.assertContains(response, 'data-drop-cell')
+        self.assertContains(response, f'name="genre_0_{self.lunch_slot.id}"')
+        self.assertContains(response, 'name="day_kind_0"')
+        self.assertContains(response, 'data-genre-picker')
+        self.assertContains(response, 'Tap a dish to swap')
+        self.assertContains(response, 'data-week-form-id')
+        self.assertContains(response, 'data-change-category')
+        self.assertContains(response, 'Kcal / person')
+        self.assertContains(response, 'mealplanner-week-scroll')
+
+    def test_day_card_kcal_is_per_person(self):
+        household = Household.ensure_for_user(self.user)
+        HouseholdMember.objects.create(
+            household=household, display_name='Partner', sort_order=1
+        )
+        self._post_grid(
+            {
+                (0, self.lunch_slot.id): MealGenre.ZUPPE,
+                (0, self.dinner_slot.id): MealGenre.PESCE,
+            },
+            form_id='build',
+        )
+        response = self.client.get(reverse('core:week_plan'))
+        monday = response.context['board_days'][0]
+        household_day = response.context['nutrition_totals']['by_day'][0]
+        self.assertEqual(household.member_count(), 2)
+        self.assertEqual(monday['plate_kcal'] * 2, household_day['effective']['kcal'])
+        self.assertEqual(monday['target_kcal'], get_target_by_kind(DayKind.OFF).target_kcal)
+        self.assertContains(response, 'Kcal / person')
+
+    def test_saving_on_off_keeps_posted_categories(self):
+        data = {'form_id': 'day_kinds'}
+        for day in range(7):
+            data[f'day_kind_{day}'] = 'off'
+            for slot in (self.lunch_slot, self.dinner_slot):
+                data[f'genre_{day}_{slot.id}'] = ''
+        data['day_kind_0'] = 'on'
+        data[f'genre_0_{self.lunch_slot.id}'] = MealGenre.ZUPPE
+
+        response = self.client.post(reverse('core:week_plan'), data)
+
+        self.assertRedirects(response, reverse('core:week_plan'))
+        week_plan = WeekPlan.objects.get(owner=self.user, week_start=monday_of_week())
+        lunch = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=0, meal_slot=self.lunch_slot
+        )
+        self.assertEqual(lunch.genre, MealGenre.ZUPPE)
+        self.assertEqual(
+            WeekPlanDayKind.objects.get(week_plan=week_plan, day=0).kind,
+            DayKind.ON,
+        )
+
+    def test_save_grid_persists_day_kinds_when_posted(self):
+        data = {'form_id': 'meal_grid'}
+        for day in range(7):
+            data[f'day_kind_{day}'] = 'on' if day < 5 else 'off'
+            for slot in (self.lunch_slot, self.dinner_slot):
+                data[f'genre_{day}_{slot.id}'] = ''
+        data[f'genre_1_{self.dinner_slot.id}'] = MealGenre.PESCE
+
+        response = self.client.post(reverse('core:week_plan'), data)
+
+        self.assertRedirects(response, reverse('core:week_plan'))
+        week_plan = WeekPlan.objects.get(owner=self.user, week_start=monday_of_week())
+        kinds = dict(
+            WeekPlanDayKind.objects.filter(week_plan=week_plan).values_list('day', 'kind')
+        )
+        self.assertEqual(kinds[1], DayKind.ON)
+        self.assertEqual(kinds[6], DayKind.OFF)
+        dinner = WeekPlanSlot.objects.get(
+            week_plan=week_plan, day=1, meal_slot=self.dinner_slot
+        )
+        self.assertEqual(dinner.genre, MealGenre.PESCE)
 
 
 class ScalePlateTests(TestCase):
@@ -304,6 +496,64 @@ class ScalePlateTests(TestCase):
         self.assertEqual(by_name['broccoli'], Decimal('150'))
         for grams in by_name.values():
             self.assertEqual(grams, grams.to_integral_value())
+
+    def test_dairy_never_drops_below_serving_floor(self):
+        chicken = _ing(
+            name='chicken',
+            kcal=110,
+            protein=23,
+            carbs=0,
+            fat=2,
+            category=IngredientCategory.PROTEIN,
+        )
+        robiola = _ing(
+            name='Robiola',
+            kcal=335,
+            protein=17,
+            carbs=2,
+            fat=29,
+            category=IngredientCategory.DAIRY,
+        )
+        broccoli = _ing(
+            name='broccoli',
+            kcal=34,
+            protein=2.8,
+            carbs=7,
+            fat=0.4,
+            category=IngredientCategory.VEGETABLE,
+        )
+        budget = {
+            'kcal': Decimal('800'),
+            'protein': Decimal('46'),
+            'carbs': Decimal('80'),
+            'fat': Decimal('28'),
+        }
+        items = scale_ingredients_to_budget(budget, [chicken, robiola, broccoli])
+        by_name = {ing.name: grams for ing, grams in items}
+        self.assertGreaterEqual(by_name['Robiola'], DAIRY_MIN_GRAMS)
+
+    def test_day_fit_keeps_dairy_at_serving_floor(self):
+        robiola = _ing(
+            name='Robiola',
+            kcal=335,
+            protein=17,
+            carbs=2,
+            fat=29,
+            category=IngredientCategory.DAIRY,
+        )
+        daily = {
+            'kcal': Decimal('1500'),
+            'protein': Decimal('75'),
+            'carbs': Decimal('178'),
+            'fat': Decimal('38'),
+        }
+        fitted = fit_day_coverage(
+            daily,
+            [[(robiola, Decimal('400'))], [(robiola, Decimal('400'))]],
+        )
+        for plate in fitted:
+            for _ingredient, grams in plate:
+                self.assertGreaterEqual(grams, DAIRY_MIN_GRAMS)
 
     def test_two_plates_fit_day_coverage_band(self):
         chicken = _ing(

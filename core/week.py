@@ -17,7 +17,7 @@ from .models import (
     WeekPlanDayKind,
     WeekPlanSlot,
 )
-from .nutrition import compute_week_totals
+from .nutrition import compute_week_totals, plate_macros_for_meal
 from .planning import (
     GENERATED_MEAL_MARKER,
     generated_meal_name,
@@ -70,6 +70,13 @@ class GridSaveResult:
     updated: int
     removed: int
     invalid: int
+
+
+@dataclass(frozen=True)
+class RebuildSlotResult:
+    dish_name: str
+    previous_name: str
+    missing: bool
 
 
 def save_genre_grid(week_plan, meal_slots, post_data):
@@ -175,11 +182,12 @@ def _assigned_sources_by_day(week_plan):
 
 
 def assign_random_meals(week_plan, meal_slots):
-    """Pick a catalog dish per cell, then scale lunch+dinner from that day's plan."""
+    """Fill slots that have a category but no dish. Keep recipes already assigned."""
     pools = _meal_pools_by_genre(week_plan.owner)
-    used_ids = set()
+    used_ids = _used_catalog_ids(week_plan, pools)
     assigned = missing = 0
     picks_by_day = {day: [] for day in WEEK_DAYS}
+    dirty_days = set()
     slots = {
         (slot.day, slot.meal_slot_id): slot
         for slot in WeekPlanSlot.objects.filter(week_plan=week_plan).select_related('meal')
@@ -189,18 +197,52 @@ def assign_random_meals(week_plan, meal_slots):
             plan_slot = slots.get((day, meal_slot.id))
             if plan_slot is None or not plan_slot.genre:
                 continue
-            meal = _pick_from_pool(pools.get(plan_slot.genre, ()), used_ids)
-            ingredients = _ingredients_of(meal)
-            if meal is None or not ingredients:
+            source, action = _source_for_build(plan_slot, meal_slot, pools, used_ids)
+            if source is None:
                 missing += 1
                 continue
-            picks_by_day[day].append((meal_slot, meal.name, meal.genre, ingredients))
-            used_ids.add(meal.id)
-            assigned += 1
-    for day, sources in picks_by_day.items():
-        if sources:
-            _write_scaled_day(week_plan, day, sources, meal_slots)
+            picks_by_day[day].append(source)
+            if action == 'assigned':
+                assigned += 1
+                dirty_days.add(day)
+    for day in dirty_days:
+        _write_scaled_day(week_plan, day, picks_by_day[day], meal_slots)
     return GridSaveResult(updated=assigned, removed=0, invalid=missing)
+
+
+def _source_for_build(plan_slot, meal_slot, pools, used_ids):
+    if _ingredients_of(plan_slot.meal):
+        return _source_from_slot(plan_slot, meal_slot), 'kept'
+    meal = _pick_from_pool(pools.get(plan_slot.genre, ()), used_ids)
+    ingredients = _ingredients_of(meal)
+    if meal is None or not ingredients:
+        return None, 'missing'
+    used_ids.add(meal.id)
+    return (meal_slot, meal.name, meal.genre, ingredients), 'assigned'
+
+
+def _source_from_slot(plan_slot, meal_slot):
+    meal = plan_slot.meal
+    return (
+        meal_slot,
+        meal.name,
+        plan_slot.genre or meal.genre or '',
+        _ingredients_of(meal),
+    )
+
+
+def _used_catalog_ids(week_plan, pools):
+    names = set(
+        WeekPlanSlot.objects.filter(week_plan=week_plan, meal__isnull=False).values_list(
+            'meal__name', flat=True
+        )
+    )
+    return {
+        meal.id
+        for pool in pools.values()
+        for meal in pool
+        if meal.name in names
+    }
 
 
 def _meal_pools_by_genre(user):
@@ -211,11 +253,66 @@ def _meal_pools_by_genre(user):
     return pools
 
 
-def _pick_from_pool(pool, used_ids):
+def _pick_from_pool(pool, used_ids, skip_names=None):
     if not pool:
         return None
-    unused = [meal for meal in pool if meal.id not in used_ids]
-    return choice(unused or pool)
+    skip_names = set(skip_names or ())
+    preferred = [
+        meal for meal in pool if meal.id not in used_ids and meal.name not in skip_names
+    ]
+    if preferred:
+        return choice(preferred)
+    others = [meal for meal in pool if meal.name not in skip_names]
+    return choice(others or pool)
+
+
+def rebuild_slot_meal(week_plan, meal_slots, day, meal_slot):
+    """Pick a new catalog dish for one cell; keep the rest of that day."""
+    plan_slot = _plan_slot_on(week_plan, day, meal_slot)
+    previous = plan_slot.meal.name if plan_slot and plan_slot.meal else ''
+    if plan_slot is None or not plan_slot.genre:
+        return RebuildSlotResult('', previous, True)
+    meal = _replacement_catalog_meal(week_plan, plan_slot)
+    if meal is None or not _ingredients_of(meal):
+        return RebuildSlotResult('', previous, True)
+    sources = _day_sources_for_rebuild(week_plan, day, meal_slots, (meal_slot.id, meal))
+    _write_scaled_day(week_plan, day, sources, meal_slots)
+    return RebuildSlotResult(meal.name, previous, False)
+
+
+def _plan_slot_on(week_plan, day, meal_slot):
+    return (
+        WeekPlanSlot.objects.filter(week_plan=week_plan, day=day, meal_slot=meal_slot)
+        .select_related('meal')
+        .first()
+    )
+
+
+def _replacement_catalog_meal(week_plan, plan_slot):
+    pools = _meal_pools_by_genre(week_plan.owner)
+    used_ids = _used_catalog_ids(week_plan, pools)
+    current_name = plan_slot.meal.name if plan_slot.meal else ''
+    return _pick_from_pool(pools.get(plan_slot.genre, ()), used_ids, {current_name})
+
+
+def _day_sources_for_rebuild(week_plan, day, meal_slots, pick):
+    focus_id, meal = pick
+    ingredients = _ingredients_of(meal)
+    existing = {
+        slot.meal_slot_id: slot
+        for slot in WeekPlanSlot.objects.filter(week_plan=week_plan, day=day).select_related(
+            'meal'
+        )
+    }
+    sources = []
+    for slot in meal_slots:
+        if slot.id == focus_id:
+            sources.append((slot, meal.name, meal.genre, ingredients))
+            continue
+        other = existing.get(slot.id)
+        if other is not None and _ingredients_of(other.meal):
+            sources.append(_source_from_slot(other, slot))
+    return sources
 
 
 def replace_slot_meal(week_plan, day, meal_slot, new_meal):
@@ -266,6 +363,7 @@ def week_plan_slots(week_plan):
     return list(
         WeekPlanSlot.objects.filter(week_plan=week_plan)
         .select_related('meal_slot', 'meal')
+        .prefetch_related('meal__meal_ingredients__ingredient')
         .order_by('day', 'meal_slot__order')
     )
 
@@ -274,34 +372,92 @@ def grid_rows_for(meal_slots, slots_list):
     by_day_slot = {(slot.day, slot.meal_slot_id): slot for slot in slots_list}
     rows = []
     for slot in meal_slots:
-        cells = []
-        for day in WEEK_DAYS:
-            plan_slot = by_day_slot.get((day, slot.id))
-            cells.append(
-                {
-                    'day': day,
-                    'genre': plan_slot.genre if plan_slot else '',
-                    'meal': plan_slot.meal if plan_slot else None,
-                }
-            )
+        cells = [_grid_cell(day, by_day_slot.get((day, slot.id))) for day in WEEK_DAYS]
         rows.append({'slot': slot, 'cells': cells})
     return rows
 
 
-def day_kind_columns(week_plan):
-    day_targets = targets_by_day(week_plan)
-    kind_map = {
-        day: (target.kind if target else DayKind.OFF)
-        for day, target in day_targets.items()
+def _grid_cell(day, plan_slot):
+    genre = plan_slot.genre if plan_slot else ''
+    meal = plan_slot.meal if plan_slot else None
+    return {
+        'day': day,
+        'genre': genre,
+        'genre_label': _genre_display(genre),
+        'meal': meal,
+        'preview': _meal_preview_items(meal),
+        'kcal': _meal_kcal(meal),
     }
+
+
+def _meal_preview_items(meal, limit=3):
+    if meal is None:
+        return []
+    items = []
+    for row in meal.meal_ingredients.all():
+        items.append({'name': row.ingredient.name, 'grams': row.grams})
+        if len(items) == limit:
+            break
+    return items
+
+
+def _meal_kcal(meal):
+    if meal is None:
+        return None
+    return plate_macros_for_meal(meal)['kcal']
+
+
+def _genre_display(genre):
+    if not genre:
+        return ''
+    try:
+        return MealGenre(genre).label
+    except ValueError:
+        return genre
+
+
+def day_kind_columns(week_plan, monday=None):
+    today = date.today()
+    monday = monday or week_plan.week_start
+    day_targets = targets_by_day(week_plan)
     return [
-        {
-            'day': day,
-            'label': WeekDay(day).label,
-            'kind': kind_map.get(day, DayKind.OFF),
-        }
+        _day_kind_column(day, day_targets.get(day), monday, today)
         for day in WEEK_DAYS
     ]
+
+
+def _day_kind_column(day, target, monday, today):
+    kind = target.kind if target else DayKind.OFF
+    return {
+        'day': day,
+        'label': WeekDay(day).label,
+        'short_label': WeekDay(day).label[:3],
+        'kind': kind,
+        'is_today': day == today.weekday(),
+        'date': monday + timedelta(days=day) if monday else None,
+        'target_kcal': target.target_kcal if target else None,
+    }
+
+
+def board_days_for(day_columns, rows):
+    return [_board_day(column, rows) for column in day_columns]
+
+
+def _board_day(column, rows):
+    slots = [
+        {'slot': row['slot'], 'cell': row['cells'][column['day']]}
+        for row in rows
+    ]
+    return {**column, 'slots': slots, 'plate_kcal': _plate_kcal_for(slots)}
+
+
+def _plate_kcal_for(slots):
+    total = 0
+    for entry in slots:
+        kcal = entry['cell'].get('kcal')
+        if kcal:
+            total += kcal
+    return total
 
 
 def week_plan_page_context(user, week_plan, monday):
@@ -313,19 +469,23 @@ def week_plan_page_context(user, week_plan, monday):
     slots_list = week_plan_slots(week_plan)
     day_targets = targets_by_day(week_plan)
     slots_with_meal = [slot for slot in slots_list if slot.meal_id]
+    day_columns = day_kind_columns(week_plan, monday)
+    grid_rows = grid_rows_for(meal_slots, slots_list)
     return {
         'week_plan': week_plan,
         'week_start': monday,
         'meal_slots': meal_slots,
         'meal_genres': MealGenre.choices,
-        'grid_rows': grid_rows_for(meal_slots, slots_list),
+        'grid_rows': grid_rows,
+        'board_days': board_days_for(day_columns, grid_rows),
         'week_day_headers': [(day, WeekDay(day).label) for day in WEEK_DAYS],
-        'day_kind_columns': day_kind_columns(week_plan),
+        'day_kind_columns': day_columns,
         'household': household,
         'member_count': member_count,
         'nutrition_totals': compute_week_totals(day_targets, slots_with_meal, member_count),
         'on_target': get_target_by_kind(DayKind.ON),
         'off_target': get_target_by_kind(DayKind.OFF),
+        'today_weekday': date.today().weekday(),
     }
 
 

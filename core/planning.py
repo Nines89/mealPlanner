@@ -4,7 +4,7 @@ Fixed-rule portioning from the day's ON/OFF plan. No ML.
 Lunch and dinner are each scaled to their slot share, then jointly fitted so
 combined macros land in 85–100% of that day's target. Recipe grams are ignored.
 Vegetables take leftover kcal and never go below 150 g per item (edible side).
-All portion grams are rounded to the nearest whole gram.
+Dairy never drops below 35 g. All portion grams are rounded to the nearest whole gram.
 """
 from collections import defaultdict
 from dataclasses import dataclass
@@ -20,6 +20,7 @@ from .models import (
 
 GRAMS_QUANTIZE = Decimal('1')
 MIN_GRAMS = Decimal('5')
+DAIRY_MIN_GRAMS = Decimal('35')
 VEG_MIN_GRAMS = Decimal('150')
 MAX_GRAMS = Decimal('9999')
 MIN_DAY_COVERAGE = Decimal('0.85')
@@ -69,8 +70,11 @@ def quantize_grams(grams, minimum=None):
 def _minimum_grams(ingredient, macro_name=None):
     if macro_name == 'kcal':
         return VEG_MIN_GRAMS
-    if getattr(ingredient, 'category', None) == IngredientCategory.VEGETABLE:
+    category = getattr(ingredient, 'category', None)
+    if category == IngredientCategory.VEGETABLE:
         return VEG_MIN_GRAMS
+    if category == IngredientCategory.DAIRY:
+        return DAIRY_MIN_GRAMS
     return MIN_GRAMS
 
 

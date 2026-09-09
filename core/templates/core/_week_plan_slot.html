@@ -1,0 +1,69 @@
+{% load core_extras %}
+<div class="week-plan-cell group relative"
+     data-drop-cell
+     data-day="{{ cell.day }}"
+     data-slot-id="{{ entry.slot.id }}"
+     {% if not cell.genre %}data-empty{% endif %}
+     {% if cell.meal %}data-has-meal{% endif %}
+     {% if cell.genre and not cell.meal %}data-pending{% endif %}
+     data-original-genre="{{ cell.genre }}"
+     {% if cell.meal %}data-meal-name="{{ cell.meal.name }}"{% endif %}
+     {% if cell.kcal %}data-meal-kcal="{{ cell.kcal|floatformat:0 }}"{% endif %}>
+    <label class="sr-only" for="genre-{{ cell.day }}-{{ entry.slot.id }}">
+        {{ entry.slot.name }} — {{ day.label }}
+    </label>
+    <select id="genre-{{ cell.day }}-{{ entry.slot.id }}"
+            name="genre_{{ cell.day }}_{{ entry.slot.id }}"
+            class="week-plan-native w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400">
+        <option value="">— no category —</option>
+        {% for value, label in meal_genres %}
+        <option value="{{ value }}" {% if cell.genre == value %}selected{% endif %}>
+            {{ label }}
+        </option>
+        {% endfor %}
+    </select>
+    <div class="week-plan-face flex-col rounded-2xl border-2 border-gray-200 bg-white px-3 py-3 shadow-sm"
+         data-face
+         {% if cell.genre %}data-tone="{{ cell.genre }}"{% endif %}>
+        <div class="flex items-center justify-between gap-2">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-70"
+               data-face-slot>{{ entry.slot.name }}</p>
+            <button type="button"
+                    class="week-plan-face-chip"
+                    data-face-chip
+                    data-change-category
+                    aria-label="Change category for {{ entry.slot.name }} on {{ day.label }}"
+                    {% if not cell.meal %}hidden{% endif %}>
+                <span aria-hidden="true" data-face-emoji>{% if cell.genre %}{{ cell.genre|genre_emoji }}{% endif %}</span>
+                <span data-face-chip-label>{% if cell.genre_label %}{{ cell.genre_label }}{% endif %}</span>
+            </button>
+        </div>
+        <p class="week-plan-face-title mt-1.5 flex items-start gap-1.5 leading-snug"
+           data-face-title>
+            <span class="week-plan-plus shrink-0" aria-hidden="true" data-face-plus>+</span>
+            <span data-face-title-text>{% if cell.meal %}{{ cell.meal.name }}{% elif cell.genre_label %}{{ cell.genre_label }}{% else %}Tap to choose a category{% endif %}</span>
+        </p>
+        <p class="mt-1 text-xs font-medium opacity-80"
+           data-face-status
+           {% if cell.meal or not cell.genre %}hidden{% endif %}>Tap to pick a dish</p>
+        <p class="week-plan-kcal mt-1 text-sm font-bold tabular-nums"
+           data-face-kcal
+           {% if not cell.kcal %}hidden{% endif %}>{% if cell.kcal %}{{ cell.kcal|floatformat:0 }} kcal{% endif %}</p>
+        <ul class="week-plan-preview mt-2 space-y-0.5"
+            data-face-preview
+            {% if not cell.preview %}hidden{% endif %}>
+            {% for item in cell.preview %}
+            <li class="flex justify-between gap-2 text-xs">
+                <span class="truncate">{{ item.name }}</span>
+                <span class="shrink-0 tabular-nums opacity-80">{{ item.grams }}g</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <button type="button"
+            class="week-plan-clear absolute -right-1.5 -top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-base leading-none text-gray-500 shadow-sm hover:bg-rose-50 hover:text-rose-600"
+            data-clear-cell
+            aria-label="Clear {{ entry.slot.name }} on {{ day.label }}">
+        ×
+    </button>
+</div>

@@ -1,0 +1,64 @@
+{% load core_extras %}
+<article id="day-{{ day.day }}"
+         class="min-w-0 scroll-mt-4 overflow-hidden rounded-2xl border bg-white p-3 shadow-sm ring-1 ring-gray-900/5 {% if day.is_today %}border-emerald-300 ring-emerald-200{% elif day.kind == 'on' %}border-amber-200{% else %}border-gray-200{% endif %}"
+         data-day-card
+         data-day-label="{{ day.label }}">
+    <header class="mb-3 flex min-w-0 flex-col gap-2">
+        <div class="min-w-0">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {% if day.is_today %}Today{% else %}{{ day.short_label }}{% endif %}
+            </p>
+            <h3 class="text-base font-semibold leading-tight text-gray-900">{{ day.label }}</h3>
+            {% if day.date %}
+            <p class="text-xs text-gray-500">{{ day.date|date:"j M" }}</p>
+            {% endif %}
+        </div>
+        <div class="relative min-w-0">
+            <select id="day-kind-{{ day.day }}"
+                    name="day_kind_{{ day.day }}"
+                    class="week-plan-kind-native rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs">
+                <option value="off" {% if day.kind == 'off' %}selected{% endif %}>OFF</option>
+                <option value="on" {% if day.kind == 'on' %}selected{% endif %}>ON</option>
+            </select>
+            <div class="week-plan-kind-pills flex w-full min-w-0 rounded-full bg-gray-100 p-0.5" role="group" aria-label="{{ day.label }} day type">
+                <button type="button"
+                        class="min-w-0 flex-1 rounded-full px-1.5 py-1 text-[10px] font-semibold {% if day.kind == 'on' %}bg-amber-400 text-amber-950 shadow-sm{% else %}text-gray-500{% endif %}"
+                        data-kind-toggle="on"
+                        data-day="{{ day.day }}">ON</button>
+                <button type="button"
+                        class="min-w-0 flex-1 rounded-full px-1.5 py-1 text-[10px] font-semibold {% if day.kind == 'off' %}bg-white text-gray-800 shadow-sm{% else %}text-gray-500{% endif %}"
+                        data-kind-toggle="off"
+                        data-day="{{ day.day }}">OFF</button>
+            </div>
+        </div>
+    </header>
+
+    {% if day.target_kcal %}
+    <p class="mb-3 text-[11px] text-gray-500">
+        {{ day.kind|upper }} · {{ day.target_kcal }} kcal / person
+    </p>
+    {% endif %}
+
+    <div class="space-y-2">
+        {% for entry in day.slots %}
+            {% include "core/_week_plan_slot.html" with entry=entry cell=entry.cell day=day %}
+        {% endfor %}
+    </div>
+
+    {% if day.target_kcal is not None %}
+    <div class="mt-3">
+        <div class="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-400">
+            <span>Kcal / person</span>
+            <span>
+                <span class="text-emerald-700">{{ day.plate_kcal|floatformat:0 }}</span>
+                <span class="text-gray-300">/</span>
+                {{ day.target_kcal|floatformat:0 }}
+            </span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div class="h-full rounded-full {% if day.plate_kcal|pct_of:day.target_kcal > 100 %}bg-amber-400{% else %}bg-emerald-500{% endif %}"
+                 style="width: {{ day.plate_kcal|pct_of:day.target_kcal|at_most:100 }}%"></div>
+        </div>
+    </div>
+    {% endif %}
+</article>

@@ -16,6 +16,7 @@ from .week import (
     get_current_week_plan,
     load_fill_page,
     monday_of_week,
+    rebuild_slot_meal,
     rescale_assigned_portions,
     save_day_kinds,
     save_genre_grid,
@@ -99,6 +100,7 @@ def _handle_week_plan_post(request, week_plan):
         'day_kinds': _save_week_day_kinds,
         'meal_grid': _save_week_genre_grid,
         'build': _build_week_meals,
+        'rebuild_slot': _rebuild_week_slot,
     }
     handler = handlers.get(request.POST.get('form_id'))
     if handler is None:
@@ -106,16 +108,34 @@ def _handle_week_plan_post(request, week_plan):
     return handler(request, week_plan)
 
 
+def _planner_meal_slots(user):
+    return list(MealSlot.objects.filter(user=user).order_by('order'))
+
+
+def _save_posted_genre_grid(week_plan, meal_slots, post_data):
+    if not any(key.startswith('genre_') for key in post_data):
+        return None
+    return save_genre_grid(week_plan, meal_slots, post_data)
+
+
+def _save_posted_day_kinds(week_plan, post_data):
+    if 'day_kind_0' not in post_data:
+        return
+    save_day_kinds(week_plan, post_data)
+
+
 def _save_week_day_kinds(request, week_plan):
+    meal_slots = _planner_meal_slots(request.user)
+    _save_posted_genre_grid(week_plan, meal_slots, request.POST)
     save_day_kinds(week_plan, request.POST)
-    meal_slots = list(MealSlot.objects.filter(user=request.user).order_by('order'))
     rescale_assigned_portions(week_plan, meal_slots)
     messages.success(request, 'ON/OFF days saved.')
     return redirect('core:week_plan')
 
 
 def _save_week_genre_grid(request, week_plan):
-    meal_slots = list(MealSlot.objects.filter(user=request.user).order_by('order'))
+    meal_slots = _planner_meal_slots(request.user)
+    _save_posted_day_kinds(week_plan, request.POST)
     result = save_genre_grid(week_plan, meal_slots, request.POST)
     if result.invalid:
         messages.error(request, 'Some selected categories are not valid and were ignored.')
@@ -127,7 +147,8 @@ def _save_week_genre_grid(request, week_plan):
 
 
 def _build_week_meals(request, week_plan):
-    meal_slots = list(MealSlot.objects.filter(user=request.user).order_by('order'))
+    meal_slots = _planner_meal_slots(request.user)
+    _save_posted_day_kinds(week_plan, request.POST)
     save_genre_grid(week_plan, meal_slots, request.POST)
     result = assign_random_meals(week_plan, meal_slots)
     if result.invalid:
@@ -136,8 +157,50 @@ def _build_week_meals(request, week_plan):
             f'No catalog dish for {result.invalid} '
             f'{"category" if result.invalid == 1 else "categories"}.',
         )
-    messages.success(request, f'Built week: {result.updated} dishes assigned.')
+    if result.updated:
+        messages.success(
+            request,
+            f'Assigned {result.updated} new '
+            f'{"dish" if result.updated == 1 else "dishes"}. Existing meals were kept.',
+        )
+    elif not result.invalid:
+        messages.info(request, 'No empty slots to fill. Existing dishes were kept.')
     return redirect('core:week_plan')
+
+
+def _posted_slot_ref(post_data):
+    try:
+        day = int(post_data.get('rebuild_day', ''))
+        slot_id = int(post_data.get('rebuild_slot_id', ''))
+    except (TypeError, ValueError):
+        return None, None
+    if day not in range(7):
+        return None, None
+    return day, slot_id
+
+
+def _rebuild_week_slot(request, week_plan):
+    meal_slots = _planner_meal_slots(request.user)
+    _save_posted_day_kinds(week_plan, request.POST)
+    save_genre_grid(week_plan, meal_slots, request.POST)
+    day, slot_id = _posted_slot_ref(request.POST)
+    meal_slot = next((slot for slot in meal_slots if slot.id == slot_id), None)
+    if day is None or meal_slot is None:
+        messages.error(request, 'That meal slot could not be rebuilt.')
+        return redirect('core:week_plan')
+    result = rebuild_slot_meal(week_plan, meal_slots, day, meal_slot)
+    _notify_slot_rebuild(request, result)
+    return redirect('core:week_plan')
+
+
+def _notify_slot_rebuild(request, result):
+    if result.missing:
+        messages.warning(request, 'No catalog dish for this category.')
+        return
+    if result.dish_name and result.dish_name != result.previous_name:
+        messages.success(request, f'Switched to {result.dish_name}.')
+        return
+    messages.info(request, 'No other dish in this category.')
 
 
 @require_http_methods(['GET', 'POST'])

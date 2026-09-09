@@ -1,0 +1,366 @@
+/* Week plan board: tones, drag surface, mobile dock. */
+
+.week-plan-chips {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.week-plan-chips::-webkit-scrollbar {
+  display: none;
+}
+
+[data-tone="pasta_cereali"] {
+  --tone-bg: #fffbeb;
+  --tone-border: #fcd34d;
+  --tone-text: #78350f;
+  --tone-accent: #f59e0b;
+}
+
+[data-tone="pollo_tacchino"] {
+  --tone-bg: #fff7ed;
+  --tone-border: #fdba74;
+  --tone-text: #7c2d12;
+  --tone-accent: #f97316;
+}
+
+[data-tone="pesce"] {
+  --tone-bg: #f0f9ff;
+  --tone-border: #7dd3fc;
+  --tone-text: #0c4a6e;
+  --tone-accent: #0ea5e9;
+}
+
+[data-tone="carni_rosse"] {
+  --tone-bg: #fff1f2;
+  --tone-border: #fda4af;
+  --tone-text: #881337;
+  --tone-accent: #f43f5e;
+}
+
+[data-tone="insaccati"] {
+  --tone-bg: #fef2f2;
+  --tone-border: #fca5a5;
+  --tone-text: #7f1d1d;
+  --tone-accent: #ef4444;
+}
+
+[data-tone="uova"] {
+  --tone-bg: #fefce8;
+  --tone-border: #fde047;
+  --tone-text: #713f12;
+  --tone-accent: #eab308;
+}
+
+[data-tone="legumi"] {
+  --tone-bg: #f7fee7;
+  --tone-border: #bef264;
+  --tone-text: #365314;
+  --tone-accent: #84cc16;
+}
+
+[data-tone="verdura"] {
+  --tone-bg: #f0fdf4;
+  --tone-border: #86efac;
+  --tone-text: #14532d;
+  --tone-accent: #22c55e;
+}
+
+[data-tone="formaggio"] {
+  --tone-bg: #f5f3ff;
+  --tone-border: #c4b5fd;
+  --tone-text: #4c1d95;
+  --tone-accent: #8b5cf6;
+}
+
+[data-tone="zuppe"] {
+  --tone-bg: #f0fdfa;
+  --tone-border: #5eead4;
+  --tone-text: #134e4a;
+  --tone-accent: #14b8a6;
+}
+
+[data-tone="insalate"] {
+  --tone-bg: #ecfdf5;
+  --tone-border: #6ee7b7;
+  --tone-text: #064e3b;
+  --tone-accent: #10b981;
+}
+
+[data-tone="piadine"] {
+  --tone-bg: #fafaf9;
+  --tone-border: #d6d3d1;
+  --tone-text: #44403c;
+  --tone-accent: #d97706;
+}
+
+.week-plan-chip {
+  background: var(--tone-bg);
+  border-color: var(--tone-border);
+  color: var(--tone-text);
+  cursor: grab;
+  min-height: 2.75rem;
+}
+
+@media (pointer: coarse) {
+  .week-plan-chip {
+    cursor: pointer;
+  }
+}
+
+.week-plan-chip.is-selected {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--tone-accent);
+}
+
+.week-plan-face {
+  position: relative;
+  min-height: 5.75rem;
+  justify-content: center;
+  border-style: dashed;
+  transition: transform 150ms ease, outline-color 150ms ease;
+}
+
+.week-plan-face[data-tone] {
+  background: var(--tone-bg);
+  border-color: var(--tone-border);
+  color: var(--tone-text);
+  border-style: solid;
+  padding-left: 1.1rem;
+}
+
+.week-plan-face[data-tone]::before {
+  content: "";
+  position: absolute;
+  left: 0.45rem;
+  top: 0.7rem;
+  bottom: 0.7rem;
+  width: 0.28rem;
+  border-radius: 999px;
+  background: var(--tone-accent);
+}
+
+.week-plan-cell[data-empty] .week-plan-clear {
+  display: none;
+}
+
+.week-plan-root.is-ready .week-plan-kind-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.week-plan-root:not(.is-ready) .week-plan-kind-pills {
+  display: none;
+}
+
+.week-plan-root.is-ready .week-plan-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  pointer-events: none;
+}
+
+.week-plan-root:not(.is-ready) .week-plan-face,
+.week-plan-root:not(.is-ready) .week-plan-clear,
+.week-plan-root:not(.is-ready) .week-plan-hint {
+  display: none;
+}
+
+.week-plan-root.is-ready .week-plan-face {
+  display: flex;
+}
+
+.week-plan-cell.is-drop-target .week-plan-face {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+  transform: scale(1.02);
+}
+
+.week-plan-ghost {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  transform: translate(-50%, -120%);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--tone-border, #d1d5db);
+  background: var(--tone-bg, #fff);
+  color: var(--tone-text, #111827);
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+}
+
+.week-plan-root.is-dragging {
+  cursor: grabbing;
+}
+
+.week-plan-root.is-dragging .week-plan-cell {
+  touch-action: none;
+}
+
+.week-plan-plus {
+  display: none;
+}
+
+.week-plan-cell[data-empty] .week-plan-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #059669;
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.week-plan-cell[data-empty] [data-face-emoji] {
+  display: none;
+}
+
+.week-plan-cell[data-empty] .week-plan-face {
+  cursor: pointer;
+  border-color: #6ee7b7;
+  background: #ecfdf5;
+  color: #065f46;
+  padding-left: 0.75rem;
+  box-shadow: none;
+}
+
+.week-plan-cell[data-empty] .week-plan-face::before,
+.week-plan-cell[data-empty] .week-plan-preview,
+.week-plan-cell[data-empty] .week-plan-kcal,
+.week-plan-cell[data-empty] .week-plan-face-chip,
+.week-plan-cell[data-empty] [data-face-status] {
+  display: none;
+}
+
+.week-plan-face-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.15rem 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+
+.week-plan-cell {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.week-plan-cell:active .week-plan-face {
+  transform: scale(0.98);
+}
+
+.week-plan-face-chip[hidden] {
+  display: none;
+}
+
+.week-plan-face-title {
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.week-plan-cell[data-has-meal] .week-plan-face {
+  min-height: 8.5rem;
+  justify-content: flex-start;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.week-plan-cell[data-has-meal] .week-plan-face-title {
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+
+.week-plan-cell[data-pending] .week-plan-face {
+  border-style: dashed;
+}
+
+.week-plan-preview {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week-plan-preview[hidden],
+.week-plan-kcal[hidden],
+[data-face-status][hidden] {
+  display: none;
+}
+
+.week-plan-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.week-plan-picker[hidden] {
+  display: none;
+}
+
+.week-plan-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.week-plan-picker-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-height: min(85vh, 36rem);
+  overflow: auto;
+  padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: #fff;
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.18);
+}
+
+@media (min-width: 1024px) {
+  .week-plan-picker-sheet {
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    width: min(28rem, calc(100% - 2rem));
+    transform: translate(-50%, -50%);
+    border-radius: 1.5rem;
+    max-height: min(80vh, 36rem);
+  }
+}
+
+.week-plan-picker .week-plan-chip {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .week-plan-cell.is-drop-target .week-plan-face,
+  .week-plan-face {
+    transition: none;
+  }
+}

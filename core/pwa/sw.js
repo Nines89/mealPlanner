@@ -8,7 +8,7 @@
  *
  * Chrome richiede un listener su "fetch" per i criteri di installabilità PWA.
  */
-const STATIC_CACHE = 'mealplanner-static-v2';
+const STATIC_CACHE = 'mealplanner-static-v4';
 
 /** Precache minimo: icone PWA (smoke offline su asset propri; vedi docs/pwa-fase-1-checklist.md). */
 const PRECACHE_URLS = ['/static/pwa/icon-192.png', '/static/pwa/icon-512.png'];
