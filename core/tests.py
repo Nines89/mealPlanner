@@ -295,6 +295,7 @@ class WeekPlanMealGridTests(TestCase):
         self.assertIsNotNone(tuesday_lunch.meal_id)
         self.assertEqual(tuesday_lunch.meal.name, 'Zuppa di Carote')
 
+
     def test_rebuild_slot_swaps_only_that_dish(self):
         extra_soup = Meal.objects.create(
             name='Zuppa di Cavolo Rosso',
@@ -770,21 +771,21 @@ class NutritionAndShoppingTests(TestCase):
         self.assertContains(response, '200 g')
 
 
-class NoLoginRequiredTests(TestCase):
-    def test_dashboard_opens_without_login(self):
+class AuthenticationRequiredTests(TestCase):
+    def test_dashboard_redirects_anonymous_users_to_login(self):
         response = self.client.get(reverse('core:dashboard'))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Log in')
-        self.assertNotContains(response, 'Register')
-        self.assertContains(response, 'Week plan')
 
-    def test_week_plan_has_no_breakfast_row(self):
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('core:dashboard')}")
+
+    def test_week_plan_redirects_anonymous_users_to_login(self):
         response = self.client.get(reverse('core:week_plan'))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Breakfast')
-        self.assertNotContains(response, 'Colazione')
-        self.assertContains(response, 'Lunch')
-        self.assertContains(response, 'Dinner')
+
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('core:week_plan')}")
+
+    def test_ingredient_api_rejects_anonymous_users(self):
+        response = self.client.get('/api/ingredients/')
+
+        self.assertEqual(response.status_code, 403)
 
 
 class OnOffTargetTests(TestCase):
@@ -824,6 +825,8 @@ class OnOffTargetTests(TestCase):
         self.assertEqual(on.target_protein, 113)
 
     def test_dashboard_shows_on_and_off(self):
+        user = User.objects.create_user(username='dashboard-user', password='secret')
+        self.client.force_login(user)
         response = self.client.get(reverse('core:dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '1700')
@@ -1031,6 +1034,5 @@ class DashboardTodayTests(TestCase):
         ratio = effective / expected
         self.assertGreaterEqual(ratio, Decimal('0.848'))
         self.assertLessEqual(ratio, Decimal('1.002'))
-
 
 

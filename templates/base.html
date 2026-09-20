@@ -32,7 +32,12 @@
                 <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Week plan</a>
                 <a href="{% url 'core:shopping_list' %}" class="text-gray-700 hover:text-gray-900 font-medium">Shopping list</a>
                 <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Household</a>
-                <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
+                {% if request.user.is_authenticated %}
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="text-gray-600 hover:text-gray-900">Log out</button>
+                    </form>
+                {% endif %}
             </div>
 
             <label for="nav-toggle" class="md:hidden cursor-pointer p-2">
@@ -48,7 +53,12 @@
             <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Week plan</a>
             <a href="{% url 'core:shopping_list' %}" class="text-gray-700 hover:text-gray-900 font-medium">Shopping list</a>
             <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Household</a>
-            <a href="{% url 'admin:index' %}" class="text-gray-600 hover:text-gray-900">Admin</a>
+            {% if request.user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-gray-600 hover:text-gray-900">Log out</button>
+                </form>
+            {% endif %}
         </div>
     </div>
     </nav>

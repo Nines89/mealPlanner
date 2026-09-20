@@ -1,4 +1,5 @@
-"""Attach a single local planner user so the app needs no login screen."""
+"""Optional development-only shortcut for a single local planner user."""
+from django.conf import settings
 from django.contrib.auth.models import User
 
 from .slots import sync_lunch_dinner_slots
@@ -25,10 +26,12 @@ class AutoLoginLocalUserMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith('/admin/'):
+        if not settings.LOCAL_AUTO_LOGIN or request.path.startswith('/admin/'):
             return self.get_response(request)
-        sync_lunch_dinner_slots()
-        ensure_on_off_targets()
         if not request.user.is_authenticated:
+            # This convenience mode is deliberately opt-in: enabling it on a
+            # reachable deployment would expose the first user's household.
+            sync_lunch_dinner_slots()
+            ensure_on_off_targets()
             request.user = get_or_create_local_user()
         return self.get_response(request)

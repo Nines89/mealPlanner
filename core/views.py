@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
@@ -40,6 +41,7 @@ def _slots_assigned_on(week_plan, day):
     }
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def dashboard(request):
     user = request.user
@@ -75,11 +77,13 @@ def dashboard(request):
     )
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def nutrition_target_edit(request):
     return redirect('core:dashboard')
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def week_plan_current(request):
     """Current ISO week: meal grid plus household expected vs effective totals."""
@@ -203,6 +207,7 @@ def _notify_slot_rebuild(request, result):
     messages.info(request, 'No other dish in this category.')
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def week_plan_fill_slot(request, day, slot_id):
     """Fill one week-plan cell with a scaled protein + vegetable plate."""
@@ -237,6 +242,7 @@ def _fill_slot_post(request, page):
     return redirect('core:week_plan')
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def household_manage(request):
     """Add/remove household names (count is used for shopping and totals)."""
@@ -303,6 +309,7 @@ _REMOVE_MESSAGES = {
 }
 
 
+@login_required
 @require_http_methods(['GET'])
 def shopping_list(request):
     """Weekly shopping list: plate grams × household size."""
