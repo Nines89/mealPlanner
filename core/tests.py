@@ -257,6 +257,20 @@ class WeekPlanMealGridTests(TestCase):
         self.assertEqual(lunch.genre, MealGenre.UOVA)
         self.assertIsNone(lunch.meal)
 
+    def test_week_plan_defaults_to_vegetable_macro_category_display(self):
+        self._post_grid(
+            {(0, self.lunch_slot.id): MealGenre.ZUPPE},
+            form_id='build',
+        )
+
+        response = self.client.get(reverse('core:week_plan'))
+
+        self.assertContains(response, 'data-vegetable-view="macro"')
+        self.assertContains(response, 'Macro category')
+        self.assertContains(response, 'Recipe vegetable')
+        self.assertContains(response, 'data-vegetable-name="Broccoli"')
+        self.assertContains(response, 'data-vegetable-macro="Flower vegetables"')
+
     def test_build_keeps_existing_dishes_and_fills_new_cells(self):
         self._post_grid(
             {
@@ -916,6 +930,17 @@ class CatalogSeedTests(TestCase):
         self.assertTrue(Ingredient.objects.filter(name='Pancetta').exists())
         self.assertTrue(Ingredient.objects.filter(name='Piadina').exists())
 
+    def test_chickpeas_and_lentils_are_seeded_as_proteins(self):
+        specs = {row['name']: row for row in load_ingredient_specs()}
+        names = (
+            'Ceci secchi',
+            'Ceci in scatola',
+            'Lenticchie secche',
+            'Lenticchie in scatola',
+        )
+        self.assertTrue(all(specs[name]['category'] == IngredientCategory.PROTEIN for name in names))
+        self.assertTrue(all(specs[name]['vegetable_subcategory'] == '' for name in names))
+
     def test_week_plan_lists_recipe_categories(self):
         self.client.force_login(User.objects.create_user(username='nino', password='secret'))
         response = self.client.get(reverse('core:week_plan'))
@@ -1035,4 +1060,3 @@ class DashboardTodayTests(TestCase):
         ratio = effective / expected
         self.assertGreaterEqual(ratio, Decimal('0.848'))
         self.assertLessEqual(ratio, Decimal('1.002'))
-

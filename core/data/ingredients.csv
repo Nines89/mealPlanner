@@ -62,10 +62,10 @@ Mais,vegetable,fruit_veg,86,3.3,19,1.2,2.7,6.3,0.2,0,vegan,summer
 Cavoletti di Bruxelles,vegetable,flower,43,3.4,9,0.3,3.8,2.2,0.06,0.03,vegan,winter
 Bietole,vegetable,leafy,19,1.8,3.7,0.2,1.6,1.1,0.03,0.21,vegan,"autumn,winter"
 Radicchio,vegetable,leafy,23,1.4,4.5,0.3,0.9,0.6,0.07,0.02,vegan,"autumn,winter"
-Lenticchie secche,vegetable,legume,353,25.4,52,1.1,27,2,0.2,0.01,vegan,all
-Lenticchie in scatola,vegetable,legume,82,6.9,14,0.4,3.7,1.2,0.1,0.5,vegan,all
-Ceci secchi,vegetable,legume,364,19,61,6,17,11,0.6,0.02,vegan,all
-Ceci in scatola,vegetable,legume,119,7.2,15,2.5,4.4,2.6,0.3,0.5,vegan,all
+Lenticchie secche,protein,,353,25.4,52,1.1,27,2,0.2,0.01,vegan,all
+Lenticchie in scatola,protein,,82,6.9,14,0.4,3.7,1.2,0.1,0.5,vegan,all
+Ceci secchi,protein,,364,19,61,6,17,11,0.6,0.02,vegan,all
+Ceci in scatola,protein,,119,7.2,15,2.5,4.4,2.6,0.3,0.5,vegan,all
 Fagioli cannellini secchi,vegetable,legume,336,23.4,60,1.5,15,2.1,0.2,0.01,vegan,all
 Fagioli cannellini in scatola,vegetable,legume,90,6,13,0.5,4.3,0.3,0.1,0.5,vegan,all
 Riso basmati,carb,,356,7.5,78,0.9,0.4,0.1,0.25,0,vegan,all
@@ -176,4 +176,3 @@ Pinoli,fat,,673,14,13,68,3.7,3.6,4.9,0,"vegan,nuts",all
 Semi misti,fat,,567,20,23,50,11,1.5,5,0.02,"vegan,nuts",all
 Pesca,fruit,,39,0.9,10,0.3,1.5,8,0.02,0,vegan,summer
 Melone,fruit,,34,0.8,8,0.2,0.9,8,0.05,0.02,vegan,summer
-

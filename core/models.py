@@ -361,12 +361,27 @@ class Ingredient(models.Model):
         return f"{self.name} ({self.get_category_display()})"
 
     def clean(self):
-        """Keep vegetable_subcategory only when category is vegetable."""
+        """Every vegetable belongs to one and only one macro category."""
         from django.core.exceptions import ValidationError
         if self.category != IngredientCategory.VEGETABLE and self.vegetable_subcategory:
             raise ValidationError(
                 'vegetable_subcategory can be set only when category is "vegetable".'
             )
+        if self.category == IngredientCategory.VEGETABLE and not self.vegetable_subcategory:
+            raise ValidationError(
+                'vegetable_subcategory is required when category is "vegetable".'
+            )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(category=IngredientCategory.VEGETABLE)
+                    | ~models.Q(vegetable_subcategory='')
+                ),
+                name='core_vegetables_require_macro_category',
+            ),
+        ]
 
 # ─────────────────────────────────────────
 # MEAL
@@ -543,4 +558,3 @@ class WeekPlanSlot(models.Model):
 
     def __str__(self):
         return f"{self.week_plan} — {self.get_day_display()} — {self.meal_slot.name}"
-

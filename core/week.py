@@ -12,6 +12,7 @@ from .models import (
     MealGenre,
     MealIngredient,
     MealSlot,
+    IngredientCategory,
     WeekDay,
     WeekPlan,
     WeekPlanDayKind,
@@ -394,11 +395,30 @@ def _meal_preview_items(meal, limit=3):
     if meal is None:
         return []
     items = []
-    for row in meal.meal_ingredients.all():
-        items.append({'name': row.ingredient.name, 'grams': row.grams})
+    rows = list(meal.meal_ingredients.all())
+    # Always include the suggested vegetable in the compact card preview so
+    # the display-mode selector has a visible effect.
+    rows.sort(
+        key=lambda row: row.ingredient.category != IngredientCategory.VEGETABLE
+    )
+    for row in rows:
+        ingredient = row.ingredient
+        items.append(
+            {
+                'name': ingredient.name,
+                'vegetable_macro_category': _vegetable_macro_category(ingredient),
+                'grams': row.grams,
+            }
+        )
         if len(items) == limit:
             break
     return items
+
+
+def _vegetable_macro_category(ingredient):
+    if ingredient.category != IngredientCategory.VEGETABLE:
+        return ''
+    return ingredient.get_vegetable_subcategory_display()
 
 
 def _meal_kcal(meal):

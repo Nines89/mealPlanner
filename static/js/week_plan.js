@@ -1,5 +1,6 @@
 (function () {
   const SCROLL_KEY = 'mealplanner-week-scroll';
+  const VEGETABLE_VIEW_KEY = 'mealplanner-vegetable-view';
   const DRAG_THRESHOLD = 8;
   const root = document.querySelector('[data-week-plan]');
   if (!root) {
@@ -22,6 +23,7 @@
 
   root.classList.add('is-ready');
   bindBoard();
+  bindVegetableView();
   keepWeekScroll();
 
   function bindBoard() {
@@ -55,6 +57,41 @@
     if (form) {
       form.addEventListener('submit', rememberWeekScroll);
     }
+  }
+
+  function bindVegetableView() {
+    const buttons = root.querySelectorAll('[data-vegetable-view]');
+    if (!buttons.length) {
+      return;
+    }
+    let view = 'macro';
+    try {
+      view = localStorage.getItem(VEGETABLE_VIEW_KEY) || view;
+    } catch (ignore) {}
+    setVegetableView(view);
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        setVegetableView(button.dataset.vegetableView || 'macro');
+      });
+    });
+  }
+
+  function setVegetableView(view) {
+    const recipeView = view === 'recipe';
+    root.querySelectorAll('[data-vegetable-name]').forEach(function (element) {
+      element.textContent = recipeView
+        ? element.dataset.vegetableName
+        : element.dataset.vegetableMacro;
+    });
+    root.querySelectorAll('[data-vegetable-view]').forEach(function (button) {
+      const selected = button.dataset.vegetableView === (recipeView ? 'recipe' : 'macro');
+      button.setAttribute('aria-pressed', String(selected));
+      button.classList.toggle('bg-white', selected);
+      button.classList.toggle('shadow-sm', selected);
+    });
+    try {
+      localStorage.setItem(VEGETABLE_VIEW_KEY, recipeView ? 'recipe' : 'macro');
+    } catch (ignore) {}
   }
 
   function onPaletteClick(event) {
