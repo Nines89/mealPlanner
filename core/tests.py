@@ -3,7 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .macros import empty_macros, macros_for_grams, sum_macros
@@ -771,6 +771,7 @@ class NutritionAndShoppingTests(TestCase):
         self.assertContains(response, '200 g')
 
 
+@override_settings(LOCAL_AUTO_LOGIN=False)
 class AuthenticationRequiredTests(TestCase):
     def test_dashboard_redirects_anonymous_users_to_login(self):
         response = self.client.get(reverse('core:dashboard'))
@@ -1034,5 +1035,4 @@ class DashboardTodayTests(TestCase):
         ratio = effective / expected
         self.assertGreaterEqual(ratio, Decimal('0.848'))
         self.assertLessEqual(ratio, Decimal('1.002'))
-
 

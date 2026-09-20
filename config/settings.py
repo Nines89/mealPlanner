@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import secrets
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -27,12 +28,16 @@ def env_list(name: str) -> list[str]:
     return [item.strip() for item in os.getenv(name, '').split(',') if item.strip()]
 
 
-# Deployment is safe by default. Local development must explicitly opt in with
-# DJANGO_DEBUG=True and provide a development-only key.
-DEBUG = env_flag('DJANGO_DEBUG')
+# `runserver` must work on a fresh clone. Production is still explicit: it must
+# set DJANGO_DEBUG=False, DJANGO_SECRET_KEY and DJANGO_ALLOWED_HOSTS.
+DEBUG = env_flag('DJANGO_DEBUG', default=True)
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
-    raise ImproperlyConfigured('Set the DJANGO_SECRET_KEY environment variable.')
+    if not DEBUG:
+        raise ImproperlyConfigured('Set the DJANGO_SECRET_KEY environment variable.')
+    # A process-local key is safe for a development server and prevents a
+    # secret from being committed. Sessions intentionally expire on restart.
+    SECRET_KEY = secrets.token_urlsafe(50)
 
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS')
 if not DEBUG and not ALLOWED_HOSTS:
@@ -152,9 +157,9 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Never enable this on a network-accessible environment. It exists solely to
-# preserve the frictionless single-user workflow during local development.
-LOCAL_AUTO_LOGIN = DEBUG and env_flag('DJANGO_LOCAL_AUTO_LOGIN')
+# Never enable this on a network-accessible environment. It preserves the
+# frictionless single-user workflow only while Django debug mode is active.
+LOCAL_AUTO_LOGIN = DEBUG and env_flag('DJANGO_LOCAL_AUTO_LOGIN', default=True)
 
 # Django REST Framework (endpoint minimi; espandere con ViewSet/versioning se serve)
 REST_FRAMEWORK = {

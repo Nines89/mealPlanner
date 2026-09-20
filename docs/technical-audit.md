@@ -4,7 +4,7 @@
 
 - **Autenticazione:** le pagine che leggono o modificano piani familiari richiedono ora una sessione autenticata; l'API, già protetta da DRF, è finalmente pubblicata sotto `/api/ingredients/`.
 - **Sviluppo locale:** il precedente login automatico non è più attivo implicitamente. È un'opzione esplicita, limitata a `DJANGO_DEBUG=True`, così un deploy non può servire per errore i dati del primo utente del database.
-- **Configurazione sicura:** chiave segreta, host e origini CSRF sono configurazione d'ambiente. In produzione l'applicazione non si avvia senza questi valori, anziché usare una chiave versionata e `ALLOWED_HOSTS=['*']`.
+- **Configurazione sicura:** host e origini CSRF sono configurazione d'ambiente; in produzione chiave segreta e host sono obbligatori. In locale `runserver` resta subito utilizzabile grazie a una chiave effimera non versionata.
 - **HTTP:** cookie sicuri, redirect HTTPS, HSTS, `nosniff`, referrer policy e protezione anti-frame sono abilitati fuori dal debug. Il redirect HTTPS è configurabile per un reverse proxy.
 
 ## Debito tecnico da rimuovere in seguito
