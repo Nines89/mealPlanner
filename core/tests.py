@@ -3,7 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .macros import empty_macros, macros_for_grams, sum_macros
@@ -257,6 +257,20 @@ class WeekPlanMealGridTests(TestCase):
         self.assertEqual(lunch.genre, MealGenre.UOVA)
         self.assertIsNone(lunch.meal)
 
+    def test_week_plan_defaults_to_vegetable_macro_category_display(self):
+        self._post_grid(
+            {(0, self.lunch_slot.id): MealGenre.ZUPPE},
+            form_id='build',
+        )
+
+        response = self.client.get(reverse('core:week_plan'))
+
+        self.assertContains(response, 'data-vegetable-view="macro"')
+        self.assertContains(response, 'Macro category')
+        self.assertContains(response, 'Recipe vegetable')
+        self.assertContains(response, 'data-vegetable-name="Broccoli"')
+        self.assertContains(response, 'data-vegetable-macro="Flower vegetables"')
+
     def test_build_keeps_existing_dishes_and_fills_new_cells(self):
         self._post_grid(
             {
@@ -294,6 +308,7 @@ class WeekPlanMealGridTests(TestCase):
         self.assertEqual(monday_dinner.meal_id, dinner_id)
         self.assertIsNotNone(tuesday_lunch.meal_id)
         self.assertEqual(tuesday_lunch.meal.name, 'Zuppa di Carote')
+
 
     def test_rebuild_slot_swaps_only_that_dish(self):
         extra_soup = Meal.objects.create(
@@ -770,21 +785,22 @@ class NutritionAndShoppingTests(TestCase):
         self.assertContains(response, '200 g')
 
 
-class NoLoginRequiredTests(TestCase):
-    def test_dashboard_opens_without_login(self):
+@override_settings(LOCAL_AUTO_LOGIN=False)
+class AuthenticationRequiredTests(TestCase):
+    def test_dashboard_redirects_anonymous_users_to_login(self):
         response = self.client.get(reverse('core:dashboard'))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Log in')
-        self.assertNotContains(response, 'Register')
-        self.assertContains(response, 'Week plan')
 
-    def test_week_plan_has_no_breakfast_row(self):
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('core:dashboard')}")
+
+    def test_week_plan_redirects_anonymous_users_to_login(self):
         response = self.client.get(reverse('core:week_plan'))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Breakfast')
-        self.assertNotContains(response, 'Colazione')
-        self.assertContains(response, 'Lunch')
-        self.assertContains(response, 'Dinner')
+
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('core:week_plan')}")
+
+    def test_ingredient_api_rejects_anonymous_users(self):
+        response = self.client.get('/api/ingredients/')
+
+        self.assertEqual(response.status_code, 403)
 
 
 class OnOffTargetTests(TestCase):
@@ -824,6 +840,8 @@ class OnOffTargetTests(TestCase):
         self.assertEqual(on.target_protein, 113)
 
     def test_dashboard_shows_on_and_off(self):
+        user = User.objects.create_user(username='dashboard-user', password='secret')
+        self.client.force_login(user)
         response = self.client.get(reverse('core:dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '1700')
@@ -911,6 +929,17 @@ class CatalogSeedTests(TestCase):
         self.assertGreaterEqual(Ingredient.objects.count(), 150)
         self.assertTrue(Ingredient.objects.filter(name='Pancetta').exists())
         self.assertTrue(Ingredient.objects.filter(name='Piadina').exists())
+
+    def test_chickpeas_and_lentils_are_seeded_as_proteins(self):
+        specs = {row['name']: row for row in load_ingredient_specs()}
+        names = (
+            'Ceci secchi',
+            'Ceci in scatola',
+            'Lenticchie secche',
+            'Lenticchie in scatola',
+        )
+        self.assertTrue(all(specs[name]['category'] == IngredientCategory.PROTEIN for name in names))
+        self.assertTrue(all(specs[name]['vegetable_subcategory'] == '' for name in names))
 
     def test_week_plan_lists_recipe_categories(self):
         self.client.force_login(User.objects.create_user(username='nino', password='secret'))
@@ -1031,6 +1060,3 @@ class DashboardTodayTests(TestCase):
         ratio = effective / expected
         self.assertGreaterEqual(ratio, Decimal('0.848'))
         self.assertLessEqual(ratio, Decimal('1.002'))
-
-
-

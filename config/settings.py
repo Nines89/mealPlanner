@@ -10,24 +10,42 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+import secrets
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+def env_flag(name: str, *, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {'1', 'true', 'yes', 'on'}
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--^#$em&dh0cnuv-ys_7&6%nbp1txi5%o2^=z6n0g%o$-(4kqqd'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def env_list(name: str) -> list[str]:
+    return [item.strip() for item in os.getenv(name, '').split(',') if item.strip()]
 
-# Allowed Host header values. In DEBUG, ``*`` accepts any Host (e.g. ``192.168.1.7`` from another PC / phone).
-# In production: DEBUG=False and an explicit domain list (never ``*``).
-ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost']
+
+# `runserver` must work on a fresh clone. Production is still explicit: it must
+# set DJANGO_DEBUG=False, DJANGO_SECRET_KEY and DJANGO_ALLOWED_HOSTS.
+DEBUG = env_flag('DJANGO_DEBUG', default=True)
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Set the DJANGO_SECRET_KEY environment variable.')
+    # A process-local key is safe for a development server and prevents a
+    # secret from being committed. Sessions intentionally expire on restart.
+    SECRET_KEY = secrets.token_urlsafe(50)
+
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS')
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured('Set DJANGO_ALLOWED_HOSTS when DJANGO_DEBUG is False.')
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -121,6 +139,27 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']   # file statici del progetto
 STATIC_ROOT = BASE_DIR / 'staticfiles'     # destinazione per collectstatic (produzione)
+
+# Cookies and transport must be protected outside explicitly enabled local
+# development. Set DJANGO_SECURE_SSL_REDIRECT=False only behind a TLS-terminating
+# proxy that already performs the redirect.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_SSL_REDIRECT = env_flag('DJANGO_SECURE_SSL_REDIRECT', default=not DEBUG)
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000' if not DEBUG else '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD = SECURE_HSTS_SECONDS > 0
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'core:dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+# Never enable this on a network-accessible environment. It preserves the
+# frictionless single-user workflow only while Django debug mode is active.
+LOCAL_AUTO_LOGIN = DEBUG and env_flag('DJANGO_LOCAL_AUTO_LOGIN', default=True)
 
 # Django REST Framework (endpoint minimi; espandere con ViewSet/versioning se serve)
 REST_FRAMEWORK = {

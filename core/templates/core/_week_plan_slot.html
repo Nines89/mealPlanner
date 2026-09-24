@@ -54,7 +54,11 @@
             {% if not cell.preview %}hidden{% endif %}>
             {% for item in cell.preview %}
             <li class="flex justify-between gap-2 text-xs">
-                <span class="truncate">{{ item.name }}</span>
+                <span class="truncate"
+                      {% if item.vegetable_macro_category %}
+                      data-vegetable-name="{{ item.name }}"
+                      data-vegetable-macro="{{ item.vegetable_macro_category }}"
+                      {% endif %}>{{ item.vegetable_macro_category|default:item.name }}</span>
                 <span class="shrink-0 tabular-nums opacity-80">{{ item.grams }}g</span>
             </li>
             {% endfor %}
