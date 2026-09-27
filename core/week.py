@@ -42,7 +42,11 @@ def week_plan_for_monday(user, monday):
 
 
 def get_current_week_plan(user):
-    monday = monday_of_week()
+    return get_week_plan(user, monday_of_week())
+
+
+def get_week_plan(user, monday):
+    """Return the user's plan for the requested ISO week, creating it if needed."""
     off_target = get_target_by_kind(DayKind.OFF)
     week_plan, _created = WeekPlan.objects.get_or_create(
         owner=user,
@@ -494,6 +498,9 @@ def week_plan_page_context(user, week_plan, monday):
     return {
         'week_plan': week_plan,
         'week_start': monday,
+        'previous_week_start': monday - timedelta(days=7),
+        'next_week_start': monday + timedelta(days=7),
+        'is_current_week': monday == monday_of_week(),
         'meal_slots': meal_slots,
         'meal_genres': MealGenre.choices,
         'grid_rows': grid_rows,

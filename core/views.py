@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,6 +15,7 @@ from .week import (
     apply_fill,
     assign_random_meals,
     get_current_week_plan,
+    get_week_plan,
     load_fill_page,
     monday_of_week,
     rebuild_slot_meal,
@@ -86,8 +87,9 @@ def nutrition_target_edit(request):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def week_plan_current(request):
-    """Current ISO week: meal grid plus household expected vs effective totals."""
-    week_plan, monday = get_current_week_plan(request.user)
+    """Requested ISO week: meal grid plus household expected vs effective totals."""
+    monday = _requested_week_start(request)
+    week_plan, _monday = get_week_plan(request.user, monday)
     if request.method == 'POST':
         response = _handle_week_plan_post(request, week_plan)
         if response is not None:
@@ -97,6 +99,24 @@ def week_plan_current(request):
         'core/week_plan.html',
         week_plan_page_context(request.user, week_plan, monday),
     )
+
+
+def _requested_week_start(request):
+    raw_week = request.GET.get('week')
+    if not raw_week:
+        return monday_of_week()
+    try:
+        requested = date.fromisoformat(raw_week)
+    except ValueError as exc:
+        raise Http404('Invalid week.') from exc
+    if requested.weekday() != 0:
+        raise Http404('Week must start on a Monday.')
+    return requested
+
+
+def _week_plan_redirect(request):
+    """Preserve the selected week after a save/build/rebuild POST."""
+    return redirect(request.get_full_path())
 
 
 def _handle_week_plan_post(request, week_plan):
@@ -134,7 +154,7 @@ def _save_week_day_kinds(request, week_plan):
     save_day_kinds(week_plan, request.POST)
     rescale_assigned_portions(week_plan, meal_slots)
     messages.success(request, 'ON/OFF days saved.')
-    return redirect('core:week_plan')
+    return _week_plan_redirect(request)
 
 
 def _save_week_genre_grid(request, week_plan):
@@ -147,7 +167,7 @@ def _save_week_genre_grid(request, week_plan):
         request,
         f'Week plan updated: {result.updated} cells saved, {result.removed} cells cleared.',
     )
-    return redirect('core:week_plan')
+    return _week_plan_redirect(request)
 
 
 def _build_week_meals(request, week_plan):
@@ -169,7 +189,7 @@ def _build_week_meals(request, week_plan):
         )
     elif not result.invalid:
         messages.info(request, 'No empty slots to fill. Existing dishes were kept.')
-    return redirect('core:week_plan')
+    return _week_plan_redirect(request)
 
 
 def _posted_slot_ref(post_data):
@@ -191,10 +211,10 @@ def _rebuild_week_slot(request, week_plan):
     meal_slot = next((slot for slot in meal_slots if slot.id == slot_id), None)
     if day is None or meal_slot is None:
         messages.error(request, 'That meal slot could not be rebuilt.')
-        return redirect('core:week_plan')
+        return _week_plan_redirect(request)
     result = rebuild_slot_meal(week_plan, meal_slots, day, meal_slot)
     _notify_slot_rebuild(request, result)
-    return redirect('core:week_plan')
+    return _week_plan_redirect(request)
 
 
 def _notify_slot_rebuild(request, result):
@@ -312,9 +332,9 @@ _REMOVE_MESSAGES = {
 @login_required
 @require_http_methods(['GET'])
 def shopping_list(request):
-    """Weekly shopping list: plate grams × household size."""
+    """Selected week's shopping list: plate grams × household size."""
     user = request.user
-    monday = monday_of_week()
+    monday = _requested_week_start(request)
     household = Household.ensure_for_user(user)
     member_count = household.member_count() or 1
     week_plan = week_plan_for_monday(user, monday)
@@ -324,6 +344,8 @@ def shopping_list(request):
         'core/shopping_list.html',
         {
             'week_start': monday,
+            'previous_week_start': monday - timedelta(days=7),
+            'next_week_start': monday + timedelta(days=7),
             'week_plan': week_plan,
             'member_count': member_count,
             'rows': rows,

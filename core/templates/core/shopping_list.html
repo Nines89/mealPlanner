@@ -12,9 +12,11 @@
             · plate grams × {{ member_count }} {{ member_count|pluralize:"person,people" }}
         </p>
     </div>
-    <a href="{% url 'core:week_plan' %}" class="text-sm text-emerald-600 hover:text-emerald-800 font-medium shrink-0">
-        ← Week plan
-    </a>
+    <div class="flex flex-wrap items-center gap-3 text-sm font-medium shrink-0">
+        <a href="?week={{ previous_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">← Previous week</a>
+        <a href="{% url 'core:week_plan' %}?week={{ week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Week plan</a>
+        <a href="?week={{ next_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Next week →</a>
+    </div>
 </div>
 
 {% if not week_plan %}

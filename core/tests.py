@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -270,6 +270,21 @@ class WeekPlanMealGridTests(TestCase):
         self.assertContains(response, 'Recipe vegetable')
         self.assertContains(response, 'data-vegetable-name="Broccoli"')
         self.assertContains(response, 'data-vegetable-macro="Flower vegetables"')
+
+    def test_user_can_open_and_save_the_next_week(self):
+        next_monday = monday_of_week() + timedelta(days=7)
+        url = f"{reverse('core:week_plan')}?week={next_monday.isoformat()}"
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.context['week_start'], next_monday)
+        self.assertTrue(WeekPlan.objects.filter(owner=self.user, week_start=next_monday).exists())
+        self.assertContains(response, f'?week={monday_of_week().isoformat()}')
+        self.assertContains(response, f'?week={(next_monday + timedelta(days=7)).isoformat()}')
+
+        response = self.client.post(url, {'form_id': 'meal_grid'})
+
+        self.assertRedirects(response, url)
 
     def test_build_keeps_existing_dishes_and_fills_new_cells(self):
         self._post_grid(
@@ -783,6 +798,21 @@ class NutritionAndShoppingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Chicken')
         self.assertContains(response, '200 g')
+
+    def test_shopping_list_can_show_a_previous_week(self):
+        previous_monday = monday_of_week() - timedelta(days=7)
+        url = f"{reverse('core:shopping_list')}?week={previous_monday.isoformat()}"
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.context['week_start'], previous_monday)
+        self.assertIsNone(response.context['week_plan'])
+        self.assertContains(response, f'?week={(previous_monday - timedelta(days=7)).isoformat()}')
+        self.assertContains(response, f'?week={monday_of_week().isoformat()}')
+        self.assertContains(
+            response,
+            f'{reverse("core:week_plan")}?week={previous_monday.isoformat()}',
+        )
 
 
 @override_settings(LOCAL_AUTO_LOGIN=False)
