@@ -1,7 +1,7 @@
 """Current-week plan: retrieve, grid, ON/OFF days, random dish from category."""
 from dataclasses import dataclass
 from datetime import date, timedelta
-from random import choice
+from random import choice, choices
 
 from django.db.models import Q
 
@@ -57,6 +57,51 @@ def get_week_plan(user, monday):
 
 
 _VALID_GENRES = {value for value, _label in MealGenre.choices}
+
+_MEDITERRANEAN_WEIGHTS = {
+    MealGenre.PASTA_CEREALI: 3.0,
+    MealGenre.VERDURA: 2.0,
+    MealGenre.INSALATE: 2.0,
+    MealGenre.PESCE: 2.0,
+    MealGenre.POLLO_TACCHINO: 2.0,
+    MealGenre.LEGUMI: 2.0,
+    MealGenre.UOVA: 1.5,
+    MealGenre.FORMAGGIO: 1.5,
+    MealGenre.ZUPPE: 1.0,
+    MealGenre.PIADINE: 0.5,
+    MealGenre.CARNI_ROSSE: 0.5,
+    MealGenre.INSACCATI: 0.3,
+}
+_MEDITERRANEAN_WEEKLY_CAPS = {
+    MealGenre.CARNI_ROSSE: 1,
+    MealGenre.INSACCATI: 1,
+}
+
+
+def _week_genre_counts(plan_slots):
+    """Occorrenze correnti per genere sull'intera settimana (per rispettare i cap)."""
+    counts = {value: 0 for value in _VALID_GENRES}
+    for slot in plan_slots:
+        if slot.genre:
+            counts[slot.genre] = counts.get(slot.genre, 0) + 1
+    return counts
+
+
+def _pick_mediterranean_genre(genre_counts, pools):
+    """Sceglie un genere pesato per gli slot senza categoria, rispettando i cap
+    e scartando generi senza piatti in catalogo. Ritorna '' se nessun genere è disponibile."""
+    candidates, weights = [], []
+    for genre, weight in _MEDITERRANEAN_WEIGHTS.items():
+        if not pools.get(genre):
+            continue
+        cap = _MEDITERRANEAN_WEEKLY_CAPS.get(genre)
+        if cap is not None and genre_counts.get(genre, 0) >= cap:
+            continue
+        candidates.append(genre)
+        weights.append(weight)
+    if not candidates:
+        return ''
+    return choices(candidates, weights=weights, k=1)[0]
 
 
 def save_day_kinds(week_plan, post_data):
@@ -187,7 +232,8 @@ def _assigned_sources_by_day(week_plan):
 
 
 def assign_random_meals(week_plan, meal_slots):
-    """Fill slots that have a category but no dish. Keep recipes already assigned."""
+    """Riempie gli slot vuoti. Se manca anche il genere, lo sceglie con pesi
+    mediterranei; se il genere è già impostato manualmente, resta invariato."""
     pools = _meal_pools_by_genre(week_plan.owner)
     used_ids = _used_catalog_ids(week_plan, pools)
     assigned = missing = 0
@@ -197,12 +243,17 @@ def assign_random_meals(week_plan, meal_slots):
         (slot.day, slot.meal_slot_id): slot
         for slot in WeekPlanSlot.objects.filter(week_plan=week_plan).select_related('meal')
     }
+    genre_counts = _week_genre_counts(slots.values())
     for meal_slot in meal_slots:
         for day in WEEK_DAYS:
             plan_slot = slots.get((day, meal_slot.id))
-            if plan_slot is None or not plan_slot.genre:
-                continue
-            source, action = _source_for_build(plan_slot, meal_slot, pools, used_ids)
+            genre = plan_slot.genre if plan_slot else ''
+            if not genre:
+                genre = _pick_mediterranean_genre(genre_counts, pools)
+                if not genre:
+                    missing += 1
+                    continue
+            source, action = _source_for_build(plan_slot, meal_slot, genre, pools, used_ids)
             if source is None:
                 missing += 1
                 continue
@@ -210,21 +261,21 @@ def assign_random_meals(week_plan, meal_slots):
             if action == 'assigned':
                 assigned += 1
                 dirty_days.add(day)
+                genre_counts[genre] = genre_counts.get(genre, 0) + 1
     for day in dirty_days:
         _write_scaled_day(week_plan, day, picks_by_day[day], meal_slots)
     return GridSaveResult(updated=assigned, removed=0, invalid=missing)
 
 
-def _source_for_build(plan_slot, meal_slot, pools, used_ids):
-    if _ingredients_of(plan_slot.meal):
+def _source_for_build(plan_slot, meal_slot, genre, pools, used_ids):
+    if plan_slot is not None and plan_slot.genre == genre and _ingredients_of(plan_slot.meal):
         return _source_from_slot(plan_slot, meal_slot), 'kept'
-    meal = _pick_from_pool(pools.get(plan_slot.genre, ()), used_ids)
+    meal = _pick_from_pool(pools.get(genre, ()), used_ids)
     ingredients = _ingredients_of(meal)
     if meal is None or not ingredients:
         return None, 'missing'
     used_ids.add(meal.id)
     return (meal_slot, meal.name, meal.genre, ingredients), 'assigned'
-
 
 def _source_from_slot(plan_slot, meal_slot):
     meal = plan_slot.meal
