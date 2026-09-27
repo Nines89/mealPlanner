@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 from random import choice, choices
+from collections import defaultdict
 
 from django.db.models import Q
 
@@ -137,13 +138,17 @@ def save_genre_grid(week_plan, meal_slots, post_data):
     updated = removed = invalid = 0
     for meal_slot in meal_slots:
         for day in WEEK_DAYS:
-            raw_genre = post_data.get(f'genre_{day}_{meal_slot.id}', '').strip()
             existing = existing_slots.get((day, meal_slot.id))
-            genre, parse_error = _parse_posted_genre(raw_genre)
-            if parse_error:
-                invalid += 1
-                continue
-            action = _assign_grid_genre(week_plan, day, meal_slot, existing, genre)
+            skipped = post_data.get(f'skip_{day}_{meal_slot.id}', '').strip() == '1'
+            if skipped:
+                action = _assign_grid_genre(week_plan, day, meal_slot, existing, '', skipped=True)
+            else:
+                raw_genre = post_data.get(f'genre_{day}_{meal_slot.id}', '').strip()
+                genre, parse_error = _parse_posted_genre(raw_genre)
+                if parse_error:
+                    invalid += 1
+                    continue
+                action = _assign_grid_genre(week_plan, day, meal_slot, existing, genre)
             if action == 'updated':
                 updated += 1
             elif action == 'removed':
@@ -158,17 +163,38 @@ def _parse_posted_genre(raw_genre):
         return '', True
     return raw_genre, False
 
+def _mark_grid_skipped(week_plan, day, meal_slot, existing_slot):
+    already_skipped = (
+        existing_slot is not None
+        and existing_slot.skipped
+        and existing_slot.meal_id is None
+        and not existing_slot.genre
+    )
+    if already_skipped:
+        return 'unchanged'
+    old_meal = existing_slot.meal if existing_slot else None
+    if existing_slot is None:
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan, day=day, meal_slot=meal_slot,
+            genre='', meal=None, skipped=True,
+        )
+    else:
+        existing_slot.genre = ''
+        existing_slot.meal = None
+        existing_slot.skipped = True
+        existing_slot.save(update_fields=['genre', 'meal', 'skipped'])
+    _delete_orphan_generated_meal(old_meal, week_plan.owner_id)
+    return 'updated'
 
-def _assign_grid_genre(week_plan, day, meal_slot, existing_slot, genre):
+
+def _assign_grid_genre(week_plan, day, meal_slot, existing_slot, genre, skipped=False):
+    if skipped:
+        return _mark_grid_skipped(week_plan, day, meal_slot, existing_slot)
     if not genre:
         return _clear_grid_cell(week_plan, existing_slot)
     if existing_slot is None:
         WeekPlanSlot.objects.create(
-            week_plan=week_plan,
-            day=day,
-            meal_slot=meal_slot,
-            genre=genre,
-            meal=None,
+            week_plan=week_plan, day=day, meal_slot=meal_slot, genre=genre, meal=None,
         )
         return 'updated'
     return _update_grid_genre(week_plan, existing_slot, genre)
@@ -191,7 +217,8 @@ def _update_grid_genre(week_plan, existing_slot, genre):
     old_meal = None if meal_matches else meal
     existing_slot.genre = genre
     existing_slot.meal = meal if meal_matches else None
-    existing_slot.save(update_fields=['genre', 'meal'])
+    existing_slot.skipped = False
+    existing_slot.save(update_fields=['genre', 'meal', 'skipped'])
     _delete_orphan_generated_meal(old_meal, week_plan.owner_id)
     return 'updated'
 
@@ -247,6 +274,8 @@ def assign_random_meals(week_plan, meal_slots):
     for meal_slot in meal_slots:
         for day in WEEK_DAYS:
             plan_slot = slots.get((day, meal_slot.id))
+            if plan_slot is not None and plan_slot.skipped:
+                continue
             genre = plan_slot.genre if plan_slot else ''
             if not genre:
                 genre = _pick_mediterranean_genre(genre_counts, pools)
@@ -326,7 +355,7 @@ def rebuild_slot_meal(week_plan, meal_slots, day, meal_slot):
     """Pick a new catalog dish for one cell; keep the rest of that day."""
     plan_slot = _plan_slot_on(week_plan, day, meal_slot)
     previous = plan_slot.meal.name if plan_slot and plan_slot.meal else ''
-    if plan_slot is None or not plan_slot.genre:
+    if plan_slot is None or not plan_slot.genre or not plan_slot.skipped:
         return RebuildSlotResult('', previous, True)
     meal = _replacement_catalog_meal(week_plan, plan_slot)
     if meal is None or not _ingredients_of(meal):
@@ -443,6 +472,7 @@ def _grid_cell(day, plan_slot):
         'meal': meal,
         'preview': _meal_preview_items(meal),
         'kcal': _meal_kcal(meal),
+        'skipped': bool(plan_slot and plan_slot.skipped),
     }
 
 
@@ -544,6 +574,10 @@ def week_plan_page_context(user, week_plan, monday):
     slots_list = week_plan_slots(week_plan)
     day_targets = targets_by_day(week_plan)
     slots_with_meal = [slot for slot in slots_list if slot.meal_id]
+    skipped_by_day = defaultdict(list)
+    for slot in slots_list:
+        if slot.skipped:
+            skipped_by_day[slot.day].append(slot.meal_slot)
     day_columns = day_kind_columns(week_plan, monday)
     grid_rows = grid_rows_for(meal_slots, slots_list)
     return {
@@ -560,7 +594,11 @@ def week_plan_page_context(user, week_plan, monday):
         'day_kind_columns': day_columns,
         'household': household,
         'member_count': member_count,
-        'nutrition_totals': compute_week_totals(day_targets, slots_with_meal, member_count),
+        'nutrition_totals': compute_week_totals(
+                                                day_targets, slots_with_meal, member_count,
+                                                skipped_slots_by_day=skipped_by_day,
+                                                all_meal_slots=meal_slots,
+                                            ),
         'on_target': get_target_by_kind(DayKind.ON),
         'off_target': get_target_by_kind(DayKind.OFF),
         'today_weekday': date.today().weekday(),

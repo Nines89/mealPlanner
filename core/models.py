@@ -552,6 +552,10 @@ class WeekPlanSlot(models.Model):
         related_name='slots',
         help_text='Specific dish; optional until a recipe is chosen or Fill runs.',
     )
+    skipped = models.BooleanField(
+        default=False,
+        help_text='Marked as "no meal planned" — excluded from the day\'s expected macros.',
+    )
 
     class Meta:
         unique_together = [('week_plan', 'day', 'meal_slot')]

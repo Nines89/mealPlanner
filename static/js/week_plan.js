@@ -50,6 +50,9 @@
     root.querySelectorAll('[data-picker-genre]').forEach(function (button) {
       button.addEventListener('click', onPickerGenre);
     });
+    root.querySelectorAll('[data-picker-skip]').forEach(function (button) {
+      button.addEventListener('click', onPickerSkip);
+    });
     document.addEventListener('keydown', onPickerKey);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
@@ -181,20 +184,24 @@
   }
 
   function openPicker(cell) {
-    if (!picker) {
-      return;
-    }
-    pickerCell = cell;
-    if (pickerTitle) {
-      pickerTitle.textContent = cellTitle(cell) || 'Choose a category';
-    }
-    const current = cellGenre(cell);
-    root.querySelectorAll('[data-picker-genre]').forEach(function (button) {
-      button.classList.toggle('is-selected', button.dataset.pickerGenre === current);
-    });
-    picker.hidden = false;
-    document.body.style.overflow = 'hidden';
+  if (!picker) {
+    return;
   }
+  pickerCell = cell;
+  if (pickerTitle) {
+    pickerTitle.textContent = cellTitle(cell) || 'Choose a category';
+  }
+  const current = cellGenre(cell);
+  const skipped = cell.hasAttribute('data-skipped');
+  root.querySelectorAll('[data-picker-genre]').forEach(function (button) {
+    button.classList.toggle('is-selected', !skipped && button.dataset.pickerGenre === current);
+  });
+  root.querySelectorAll('[data-picker-skip]').forEach(function (button) {
+    button.classList.toggle('is-selected', skipped);
+  });
+  picker.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
 
   function closePicker() {
     if (!picker) {
@@ -204,6 +211,29 @@
     pickerCell = null;
     document.body.style.overflow = '';
   }
+
+  function onPickerSkip(event) {
+  const cell = pickerCell;
+  if (!cell) {
+    return;
+  }
+  assignSkip(cell, true);
+  closePicker();
+  announce('Marked ' + cellTitle(cell) + ' as no meal planned.');
+}
+
+function assignSkip(cell, skipped) {
+  const select = cell.querySelector('select');
+  const skipInput = cell.querySelector('[data-skip-input]');
+  if (select) {
+    select.value = '';
+  }
+  if (skipInput) {
+    skipInput.value = skipped ? '1' : '0';
+  }
+  cell.toggleAttribute('data-skipped', skipped);
+  refreshCell(cell);
+}
 
   function onPickerGenre(event) {
     const cell = pickerCell;
@@ -361,26 +391,32 @@
     drag = null;
   }
 
-  function assignCell(cell, genre) {
-    const select = cell.querySelector('select');
-    if (!select) {
-      return;
+    function assignCell(cell, genre) {
+      const select = cell.querySelector('select');
+      const skipInput = cell.querySelector('[data-skip-input]');
+      if (!select) {
+        return;
+      }
+      select.value = genre;
+      if (skipInput) {
+        skipInput.value = '0';
+      }
+      cell.removeAttribute('data-skipped');
+      refreshCell(cell);
     }
-    select.value = genre;
-    refreshCell(cell);
-  }
 
-  function refreshCell(cell) {
-    const genre = cellGenre(cell);
-    const original = cell.dataset.originalGenre || '';
-    const mealName = cell.dataset.mealName || '';
-    const hasMeal = Boolean(mealName && genre && genre === original);
-    cell.toggleAttribute('data-empty', !genre);
-    cell.toggleAttribute('data-has-meal', hasMeal);
-    cell.toggleAttribute('data-pending', Boolean(genre && !hasMeal));
-    paintFaceTone(cell, genre);
-    paintFaceCopy(cell, genre, hasMeal, mealName);
-  }
+    function refreshCell(cell) {
+      const genre = cellGenre(cell);
+      const skipped = cell.hasAttribute('data-skipped');
+      const original = cell.dataset.originalGenre || '';
+      const mealName = cell.dataset.mealName || '';
+      const hasMeal = !skipped && Boolean(mealName && genre && genre === original);
+      cell.toggleAttribute('data-empty', !genre && !skipped);
+      cell.toggleAttribute('data-has-meal', hasMeal);
+      cell.toggleAttribute('data-pending', Boolean(genre && !hasMeal && !skipped));
+      paintFaceTone(cell, skipped ? '' : genre);
+      paintFaceCopy(cell, genre, hasMeal, mealName, skipped);
+    }
 
   function paintFaceTone(cell, genre) {
     const face = cell.querySelector('[data-face]');
@@ -397,34 +433,48 @@
     }
   }
 
-  function paintFaceCopy(cell, genre, hasMeal, mealName) {
-    const title = cell.querySelector('[data-face-title-text]');
-    const chip = cell.querySelector('[data-face-chip]');
-    const chipLabel = cell.querySelector('[data-face-chip-label]');
-    const status = cell.querySelector('[data-face-status]');
-    const kcal = cell.querySelector('[data-face-kcal]');
-    const preview = cell.querySelector('[data-face-preview]');
-    const genreLabel = genre ? cellLabel(cell) : '';
-    if (title) {
-      title.textContent = hasMeal ? mealName : genreLabel || 'Tap to choose a category';
-    }
-    if (chipLabel) {
-      chipLabel.textContent = genreLabel;
-    }
-    if (chip) {
-      chip.hidden = !hasMeal;
-    }
-    if (status) {
-      status.hidden = hasMeal || !genre;
-    }
-    if (kcal) {
-      kcal.hidden = !hasMeal;
-      kcal.textContent = hasMeal && cell.dataset.mealKcal ? cell.dataset.mealKcal + ' kcal' : '';
-    }
-    if (preview) {
-      preview.hidden = !hasMeal;
-    }
+  function paintFaceCopy(cell, genre, hasMeal, mealName, skipped) {
+  const title = cell.querySelector('[data-face-title-text]');
+  const chip = cell.querySelector('[data-face-chip]');
+  const chipLabel = cell.querySelector('[data-face-chip-label]');
+  const status = cell.querySelector('[data-face-status]');
+  const kcal = cell.querySelector('[data-face-kcal]');
+  const preview = cell.querySelector('[data-face-preview]');
+  const plus = cell.querySelector('[data-face-plus]');
+  const face = cell.querySelector('[data-face]');
+  const genreLabel = genre ? cellLabel(cell) : '';
+  if (title) {
+    title.textContent = skipped
+      ? 'No meal planned'
+      : (hasMeal ? mealName : genreLabel || 'Tap to choose a category');
   }
+  if (chipLabel) {
+    chipLabel.textContent = genreLabel;
+  }
+  if (chip) {
+    chip.hidden = !hasMeal;
+  }
+  if (status) {
+    status.hidden = hasMeal || !genre || skipped;
+  }
+  if (kcal) {
+    kcal.hidden = !hasMeal;
+    kcal.textContent = hasMeal && cell.dataset.mealKcal ? cell.dataset.mealKcal + ' kcal' : '';
+  }
+  if (preview) {
+    preview.hidden = !hasMeal;
+  }
+  if (plus) {
+    plus.hidden = skipped;
+  }
+  if (face) {
+    face.classList.toggle('border-dashed', skipped);
+    face.classList.toggle('border-gray-300', skipped);
+    face.classList.toggle('bg-gray-50', skipped);
+    face.classList.toggle('border-gray-200', !skipped);
+    face.classList.toggle('bg-white', !skipped);
+  }
+}
 
   function cellGenre(cell) {
     const select = cell.querySelector('select');
@@ -498,3 +548,7 @@
     }
   }
 })();
+
+
+
+

@@ -50,6 +50,9 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">{{ row.slot.name }}</p>
                     {% if row.meal %}
                     <h3 class="font-semibold text-gray-900 mt-0.5">{{ row.meal.name }}</h3>
+                    {% elif row.skipped %}
+                    <h3 class="font-semibold text-gray-500 mt-0.5">No meal planned</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Marked as skipped — excluded from today's target.</p>
                     {% elif row.genre_label %}
                     <h3 class="font-semibold text-gray-900 mt-0.5">{{ row.genre_label }}</h3>
                     <p class="text-xs text-gray-500 mt-0.5">Category only — no dish yet</p>

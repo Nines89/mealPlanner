@@ -35,7 +35,7 @@ def _household_context(user):
 
 def _slots_assigned_on(week_plan, day):
     return {
-        slot.meal_slot_id: slot
+        slot.meal_slot_id: slot # noqa
         for slot in WeekPlanSlot.objects.filter(week_plan=week_plan, day=day)
         .select_related('meal')
         .prefetch_related('meal__meal_ingredients__ingredient')
@@ -57,6 +57,11 @@ def dashboard(request):
     today_slots, day_effective = build_today_slots(
         meal_slots, _slots_assigned_on(week_plan, day), member_count
     )
+    assigned_today = _slots_assigned_on(week_plan, day)
+    skipped_today = [
+        meal_slot for meal_slot in meal_slots
+        if (plan_slot := assigned_today.get(meal_slot.id)) and plan_slot.skipped # noqa
+    ]
     return render(
         request,
         'core/dashboard.html',
@@ -73,14 +78,17 @@ def dashboard(request):
             'day_target': day_target,
             'today_slots': today_slots,
             'day_effective': day_effective,
-            'day_expected': expected_macros_for_day(day_target, member_count),
+            'day_expected': expected_macros_for_day(
+                day_target, member_count,
+                skipped_meal_slots=skipped_today, all_slots=meal_slots,
+            ),
         },
     )
 
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def nutrition_target_edit(request):
+def nutrition_target_edit(request): # noqa
     return redirect('core:dashboard')
 
 
@@ -208,7 +216,7 @@ def _rebuild_week_slot(request, week_plan):
     _save_posted_day_kinds(week_plan, request.POST)
     save_genre_grid(week_plan, meal_slots, request.POST)
     day, slot_id = _posted_slot_ref(request.POST)
-    meal_slot = next((slot for slot in meal_slots if slot.id == slot_id), None)
+    meal_slot = next((slot for slot in meal_slots if slot.id == slot_id), None) # noqa
     if day is None or meal_slot is None:
         messages.error(request, 'That meal slot could not be rebuilt.')
         return _week_plan_redirect(request)

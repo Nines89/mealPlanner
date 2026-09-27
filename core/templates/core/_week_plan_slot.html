@@ -3,9 +3,10 @@
      data-drop-cell
      data-day="{{ cell.day }}"
      data-slot-id="{{ entry.slot.id }}"
-     {% if not cell.genre %}data-empty{% endif %}
+     {% if not cell.genre and not cell.skipped %}data-empty{% endif %}
      {% if cell.meal %}data-has-meal{% endif %}
      {% if cell.genre and not cell.meal %}data-pending{% endif %}
+     {% if cell.skipped %}data-skipped{% endif %}
      data-original-genre="{{ cell.genre }}"
      {% if cell.meal %}data-meal-name="{{ cell.meal.name }}"{% endif %}
      {% if cell.kcal %}data-meal-kcal="{{ cell.kcal|floatformat:0 }}"{% endif %}>
@@ -22,7 +23,11 @@
         </option>
         {% endfor %}
     </select>
-    <div class="week-plan-face flex-col rounded-2xl border-2 border-gray-200 bg-white px-3 py-3 shadow-sm"
+    <input type="hidden"
+       name="skip_{{ cell.day }}_{{ entry.slot.id }}"
+       value="{% if cell.skipped %}1{% else %}0{% endif %}"
+       data-skip-input>
+    <div class="week-plan-face flex-col rounded-2xl border-2 {% if cell.skipped %}border-dashed border-gray-300 bg-gray-50{% else %}border-gray-200 bg-white{% endif %} px-3 py-3 shadow-sm"
          data-face
          {% if cell.genre %}data-tone="{{ cell.genre }}"{% endif %}>
         <div class="flex items-center justify-between gap-2">
@@ -40,12 +45,11 @@
         </div>
         <p class="week-plan-face-title mt-1.5 flex items-start gap-1.5 leading-snug"
            data-face-title>
-            <span class="week-plan-plus shrink-0" aria-hidden="true" data-face-plus>+</span>
-            <span data-face-title-text>{% if cell.meal %}{{ cell.meal.name }}{% elif cell.genre_label %}{{ cell.genre_label }}{% else %}Tap to choose a category{% endif %}</span>
-        </p>
+            <span class="week-plan-plus shrink-0" aria-hidden="true" data-face-plus {% if cell.skipped %}hidden{% endif %}>+</span>
+            <span data-face-title-text>{% if cell.skipped %}No meal planned{% elif cell.meal %}{{ cell.meal.name }}{% elif cell.genre_label %}{{ cell.genre_label }}{% else %}Tap to choose a category{% endif %}</span>        </p>
         <p class="mt-1 text-xs font-medium opacity-80"
            data-face-status
-           {% if cell.meal or not cell.genre %}hidden{% endif %}>Tap to pick a dish</p>
+           {% if cell.meal or not cell.genre or cell.skipped %}hidden{% endif %}>Tap to pick a dish</p>
         <p class="week-plan-kcal mt-1 text-sm font-bold tabular-nums"
            data-face-kcal
            {% if not cell.kcal %}hidden{% endif %}>{% if cell.kcal %}{{ cell.kcal|floatformat:0 }} kcal{% endif %}</p>

@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from .macros import GRAMS_PER_100, empty_macros, scale_macros, sum_macros
 from .models import MealGenre
+from .planning import slot_budget  # nuovo import in testa al file
 
 _DAYS = range(7)
 
@@ -49,29 +50,40 @@ def meal_breakdown(meal):
     return {'macros': total, 'items': items}
 
 
-def expected_macros_for_day(nutrition_target, member_count):
-    """Household expected macros for one day, or None if no target."""
+def expected_macros_for_day(nutrition_target, member_count, skipped_meal_slots=None, all_slots=None):
+    """Household expected macros for one day, minus any slot marked 'no meal planned'."""
     if nutrition_target is None:
         return None
     multiplier = Decimal(member_count or 1)
-    return {
+    expected = {
         'kcal': Decimal(nutrition_target.target_kcal) * multiplier,
         'protein': Decimal(nutrition_target.target_protein) * multiplier,
         'carbs': Decimal(nutrition_target.target_carbs) * multiplier,
         'fat': Decimal(nutrition_target.target_fat) * multiplier,
     }
+    if not skipped_meal_slots:
+        return expected
+    for meal_slot in skipped_meal_slots:
+        budget = slot_budget(nutrition_target, meal_slot, all_slots or skipped_meal_slots)
+        if not budget:
+            continue
+        for name, amount in budget.items():
+            expected[name] = max(Decimal('0'), expected[name] - Decimal(amount) * multiplier)
+    return expected
 
 
-def compute_week_totals(targets_by_day, slots_with_meal, member_count):
-    """
-    Household expected vs effective totals.
-
-    ``targets_by_day`` is {day: NutritionTarget|None}.
-    """
+def compute_week_totals(targets_by_day, slots_with_meal, member_count,
+                         skipped_slots_by_day=None, all_meal_slots=None):
     multiplier = Decimal(member_count or 1)
+    skipped_slots_by_day = skipped_slots_by_day or {}
     by_day = {
         day: {
-            'expected': expected_macros_for_day(targets_by_day.get(day), member_count),
+            'expected': expected_macros_for_day(
+                targets_by_day.get(day),
+                member_count,
+                skipped_meal_slots=skipped_slots_by_day.get(day),
+                all_slots=all_meal_slots,
+            ),
             'effective': empty_macros(),
         }
         for day in _DAYS
@@ -124,6 +136,7 @@ def build_today_slots(meal_slots, assigned_slots, member_count):
                 'meal': meal,
                 'genre': plan_slot.genre if plan_slot else '',
                 'genre_label': _genre_label(plan_slot),
+                'skipped': bool(plan_slot and plan_slot.skipped),
                 'items': items,
                 'macros': plate,
                 'household_macros': household_macros,
@@ -139,3 +152,4 @@ def _genre_label(plan_slot):
         return MealGenre(plan_slot.genre).label
     except ValueError:
         return plan_slot.genre
+
