@@ -355,7 +355,7 @@ def rebuild_slot_meal(week_plan, meal_slots, day, meal_slot):
     """Pick a new catalog dish for one cell; keep the rest of that day."""
     plan_slot = _plan_slot_on(week_plan, day, meal_slot)
     previous = plan_slot.meal.name if plan_slot and plan_slot.meal else ''
-    if plan_slot is None or not plan_slot.genre or not plan_slot.skipped:
+    if plan_slot is None or plan_slot.skipped or not plan_slot.genre:
         return RebuildSlotResult('', previous, True)
     meal = _replacement_catalog_meal(week_plan, plan_slot)
     if meal is None or not _ingredients_of(meal):
