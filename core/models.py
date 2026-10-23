@@ -301,24 +301,24 @@ class SeasonEntry(models.Model):
 # ─────────────────────────────────────────
 
 class IngredientCategory(models.TextChoices):
-    PROTEIN   = 'protein',   'Protein'
-    VEGETABLE = 'vegetable', 'Vegetable'
-    CARB      = 'carb',      'Carbohydrate'
-    FAT       = 'fat',       'Fat'
-    DAIRY     = 'dairy',     'Dairy'
-    FRUIT     = 'fruit',     'Fruit'
-    OTHER     = 'other',     'Other'
+    PROTEIN   = 'protein',   'Proteine'
+    VEGETABLE = 'vegetable', 'Vegetali'
+    CARB      = 'carb',      'Carboidrati'
+    FAT       = 'fat',       'Grassi'
+    DAIRY     = 'dairy',     'Latticini'
+    FRUIT     = 'fruit',     'Frutta'
+    OTHER     = 'other',     'Altri'
 
 
 class VegetableSubcategory(models.TextChoices):
-    LEAFY    = 'leafy',    'Leafy greens'
-    ROOT     = 'root',     'Roots'
-    TUBER    = 'tuber',    'Tubers'
-    FLOWER   = 'flower',   'Flower vegetables'
-    FRUIT_VEG = 'fruit_veg', 'Fruit vegetables'
-    BULB     = 'bulb',     'Bulbs'
-    STEM     = 'stem',     'Stem vegetables'
-    LEGUME   = 'legume',   'Legumes'
+    LEAFY    = 'leafy',    'Foglia Larga'
+    ROOT     = 'root',     'Radice'
+    TUBER    = 'tuber',    'Tubero'
+    FLOWER   = 'flower',   'Vegetale - Fiore'
+    FRUIT_VEG = 'fruit_veg', 'Vegetale - Frutto'
+    BULB     = 'bulb',     'Bulbo'
+    STEM     = 'stem',     'Ortaggio a Stelo'
+    LEGUME   = 'legume',   'Legumi'
 
 
 class Ingredient(models.Model):
