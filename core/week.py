@@ -705,7 +705,7 @@ def _ingredients_of(meal):
     if meal is None:
         return []
     return [
-        row.ingredient
+        (row.ingredient, row.grams)
         for row in meal.meal_ingredients.select_related('ingredient').all()
     ]
 

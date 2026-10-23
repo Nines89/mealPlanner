@@ -2,9 +2,9 @@
 Fixed-rule portioning from the day's ON/OFF plan. No ML.
 
 Lunch and dinner are each scaled to their slot share, then jointly fitted so
-combined macros land in 85–100% of that day's target. Recipe grams are ignored.
-Vegetables take leftover kcal and never go below 150 g per item (edible side).
-Dairy never drops below 35 g. All portion grams are rounded to the nearest whole gram.
+combined macros land in 85–100% of that day's target. Recipe grams are ignored
+except vegetables, which keep the stored recipe weight. Dairy never drops
+below 35 g. All portion grams are rounded to the nearest whole gram.
 """
 from collections import defaultdict
 from dataclasses import dataclass
@@ -67,13 +67,14 @@ def quantize_grams(grams, minimum=None):
     return grams.quantize(GRAMS_QUANTIZE, rounding=ROUND_HALF_UP)
 
 
+def _has_fixed_grams(ingredient):
+    return getattr(ingredient, 'category', None) == IngredientCategory.VEGETABLE
+
+
 def _minimum_grams(ingredient, macro_name=None):
-    if macro_name == 'kcal':
-        return VEG_MIN_GRAMS
-    category = getattr(ingredient, 'category', None)
-    if category == IngredientCategory.VEGETABLE:
-        return VEG_MIN_GRAMS
-    if category == IngredientCategory.DAIRY:
+    if _has_fixed_grams(ingredient):
+        return Decimal('1')
+    if getattr(ingredient, 'category', None) == IngredientCategory.DAIRY:
         return DAIRY_MIN_GRAMS
     return MIN_GRAMS
 
@@ -180,30 +181,33 @@ def daily_macros(nutrition_target):
 
 
 def scale_plate(budget, selection):
-    """Grams from the slot budget: protein, remaining carbs, remaining fat, leftover kcal."""
+    """Grams from the slot budget: protein, remaining carbs, remaining fat. Veg stays fixed."""
     groups = [
         ('protein', [selection.protein]),
         ('carbs', [selection.carb] if selection.carb else []),
         ('fat', [selection.fat] if selection.fat else []),
-        ('kcal', [selection.vegetable]),
     ]
-    return _scale_groups(budget, groups)
+    items = _scale_groups(budget, groups)
+    items.extend(_fixed_vegetable_items([(selection.vegetable, None)]))
+    return items
 
 
 def scale_ingredients_to_budget(budget, ingredients):
-    """Category-based grams from the slot budget. Stored recipe grams are ignored."""
-    grouped = _group_by_category(ingredients)
+    """Category-based grams from the slot budget. Vegetable grams stay as stored."""
+    pairs = _normalize_source_items(ingredients)
+    grouped = _group_items_by_category(pairs)
     groups = [
-        ('protein', grouped[IngredientCategory.PROTEIN]),
-        ('protein', grouped[IngredientCategory.DAIRY]),
-        ('carbs', grouped[IngredientCategory.CARB]),
-        ('carbs', grouped[IngredientCategory.FRUIT]),
-        ('fat', grouped[IngredientCategory.FAT]),
-        ('kcal', grouped[IngredientCategory.VEGETABLE]),
+        ('protein', [ingredient for ingredient, _grams in grouped[IngredientCategory.PROTEIN]]),
+        ('protein', [ingredient for ingredient, _grams in grouped[IngredientCategory.DAIRY]]),
+        ('carbs', [ingredient for ingredient, _grams in grouped[IngredientCategory.CARB]]),
+        ('carbs', [ingredient for ingredient, _grams in grouped[IngredientCategory.FRUIT]]),
+        ('fat', [ingredient for ingredient, _grams in grouped[IngredientCategory.FAT]]),
     ]
     items = _scale_groups(budget, groups)
+    items.extend(_fixed_vegetable_items(grouped[IngredientCategory.VEGETABLE]))
     items.extend(
-        (ingredient, MIN_GRAMS) for ingredient in grouped[IngredientCategory.OTHER]
+        (ingredient, MIN_GRAMS)
+        for ingredient, _grams in grouped[IngredientCategory.OTHER]
     )
     return items
 
@@ -231,7 +235,12 @@ def scale_day_meals(nutrition_target, all_slots, sources):
 
 def _apply_gram_factor(items, factor):
     return [
-        (ingredient, quantize_grams(grams * factor, minimum=_minimum_grams(ingredient)))
+        (
+            ingredient,
+            grams
+            if _has_fixed_grams(ingredient)
+            else quantize_grams(grams * factor, minimum=_minimum_grams(ingredient)),
+        )
         for ingredient, grams in items
     ]
 
@@ -272,10 +281,9 @@ def _aim_category(plates, category, macro_name, daily, aim=None, shrink_if_unnee
 
 
 def _lift_kcal(plates, daily):
-    """Grow vegetables, fat, then carbs until calories reach the mid-band."""
+    """Grow fat, then carbs until calories reach the mid-band. Vegetables stay put."""
     target = daily['kcal'] * _COVERAGE_AIM
     for category in (
-        IngredientCategory.VEGETABLE,
         IngredientCategory.FAT,
         IngredientCategory.CARB,
     ):
@@ -323,7 +331,6 @@ def _ensure_kcal_floor(plates, daily):
     if combined['kcal'] >= target or combined['kcal'] <= 0:
         return plates
     energy_cats = (
-        IngredientCategory.VEGETABLE,
         IngredientCategory.CARB,
         IngredientCategory.FAT,
     )
@@ -350,6 +357,8 @@ def _category_macro(plates, category, macro_name):
 
 
 def _scale_category_grams(plates, category, factor):
+    if category == IngredientCategory.VEGETABLE:
+        return plates
     scaled = []
     for plate in plates:
         scaled.append(
@@ -369,11 +378,33 @@ def _scale_category_grams(plates, category, factor):
     return scaled
 
 
-def _group_by_category(ingredients):
+def _normalize_source_items(ingredients):
+    items = []
+    for entry in ingredients:
+        if isinstance(entry, (tuple, list)):
+            ingredient = entry[0]
+            grams = entry[1] if len(entry) > 1 else None
+        else:
+            ingredient = entry
+            grams = None
+        items.append((ingredient, grams))
+    return items
+
+
+def _fixed_vegetable_items(pairs):
+    items = []
+    for ingredient, grams in pairs:
+        if grams is None:
+            grams = VEG_MIN_GRAMS
+        items.append((ingredient, quantize_grams(grams, minimum=Decimal('1'))))
+    return items
+
+
+def _group_items_by_category(pairs):
     grouped = defaultdict(list)
-    for ingredient in ingredients:
+    for ingredient, grams in pairs:
         category = getattr(ingredient, 'category', None) or IngredientCategory.OTHER
-        grouped[category].append(ingredient)
+        grouped[category].append((ingredient, grams))
     return grouped
 
 

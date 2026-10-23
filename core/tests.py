@@ -234,6 +234,10 @@ class WeekPlanMealGridTests(TestCase):
             lunch.meal.meal_ingredients.get(ingredient=self.chicken).grams,
             Decimal('10.0'),
         )
+        self.assertEqual(
+            lunch.meal.meal_ingredients.get(ingredient=self.broccoli).grams,
+            Decimal('200.0'),
+        )
         off = get_target_by_kind(DayKind.OFF)
         slack = Decimal('0.01')
         for ratio in _day_coverage_ratios(lunch.meal, dinner.meal, off).values():
@@ -503,7 +507,7 @@ class ScalePlateTests(TestCase):
         items = scale_plate(budget, PlateSelection(protein, vegetable))
         by_name = {ing.name: grams for ing, grams in items}
         self.assertEqual(by_name['chicken'], Decimal('200.0'))
-        self.assertEqual(by_name['broccoli'], Decimal('1706'))
+        self.assertEqual(by_name['broccoli'], VEG_MIN_GRAMS)
         for grams in by_name.values():
             self.assertEqual(grams, grams.to_integral_value())
 
@@ -561,6 +565,59 @@ class ScalePlateTests(TestCase):
         items = scale_ingredients_to_budget(budget, [chicken, robiola, broccoli])
         by_name = {ing.name: grams for ing, grams in items}
         self.assertGreaterEqual(by_name['Robiola'], DAIRY_MIN_GRAMS)
+        self.assertEqual(by_name['broccoli'], VEG_MIN_GRAMS)
+
+    def test_vegetable_recipe_grams_are_absolute(self):
+        chicken = _ing(
+            name='chicken',
+            kcal=110,
+            protein=23,
+            carbs=0,
+            fat=2,
+            category=IngredientCategory.PROTEIN,
+        )
+        broccoli = _ing(
+            name='broccoli',
+            kcal=34,
+            protein=2.8,
+            carbs=7,
+            fat=0.4,
+            category=IngredientCategory.VEGETABLE,
+        )
+        budget = {
+            'kcal': Decimal('800'),
+            'protein': Decimal('46'),
+            'carbs': Decimal('80'),
+            'fat': Decimal('28'),
+        }
+        items = scale_ingredients_to_budget(
+            budget, [(chicken, Decimal('10')), (broccoli, Decimal('80'))]
+        )
+        by_name = {ing.name: grams for ing, grams in items}
+        self.assertEqual(by_name['broccoli'], Decimal('80'))
+        self.assertNotEqual(by_name['chicken'], Decimal('10'))
+
+    def test_day_fit_does_not_change_vegetable_grams(self):
+        broccoli = _ing(
+            name='broccoli',
+            kcal=34,
+            protein=2.8,
+            carbs=7,
+            fat=0.4,
+            category=IngredientCategory.VEGETABLE,
+        )
+        daily = {
+            'kcal': Decimal('1500'),
+            'protein': Decimal('75'),
+            'carbs': Decimal('178'),
+            'fat': Decimal('38'),
+        }
+        fitted = fit_day_coverage(
+            daily,
+            [[(broccoli, Decimal('80'))], [(broccoli, Decimal('120'))]],
+        )
+        self.assertEqual(fitted[0][0][1], Decimal('80'))
+        self.assertEqual(fitted[1][0][1], Decimal('120'))
 
     def test_day_fit_keeps_dairy_at_serving_floor(self):
         robiola = _ing(
@@ -1083,7 +1140,7 @@ class DashboardTodayTests(TestCase):
             ]
             self.assertTrue(veg_rows)
             for row in veg_rows:
-                self.assertGreaterEqual(row.grams, VEG_MIN_GRAMS)
+                self.assertEqual(row.grams, Decimal('200.0'))
         effective = response.context['day_effective']['kcal']
         expected = response.context['day_expected']['kcal']
         self.assertEqual(expected, Decimal('3000'))
