@@ -8,7 +8,7 @@ below 35 g. All portion grams are rounded to the nearest whole gram.
 """
 from collections import defaultdict
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING, ROUND_FLOOR
 
 from .macros import MACRO_NAMES, empty_macros, macros_for_grams, sum_macros
 from .models import (
@@ -18,10 +18,10 @@ from .models import (
     MealSlotTarget,
 )
 
-GRAMS_QUANTIZE = Decimal('1')
+GRAMS_QUANTIZE = Decimal('10')
 MIN_GRAMS = Decimal('5')
 DAIRY_MIN_GRAMS = Decimal('35')
-VEG_MIN_GRAMS = Decimal('150')
+VEG_MIN_GRAMS = Decimal('50')
 MAX_GRAMS = Decimal('9999')
 MIN_DAY_COVERAGE = Decimal('0.85')
 MAX_DAY_COVERAGE = Decimal('1.00')
@@ -60,18 +60,38 @@ class PlateSelection:
 def quantize_grams(grams, minimum=None):
     grams = Decimal(grams)
     floor = MIN_GRAMS if minimum is None else minimum
-    if grams < floor:
-        grams = floor
-    if grams > MAX_GRAMS:
-        grams = MAX_GRAMS
-    return grams.quantize(GRAMS_QUANTIZE, rounding=ROUND_HALF_UP)
+    step = GRAMS_QUANTIZE
+
+    grams = max(floor, min(grams, MAX_GRAMS))
+
+    rounded = (
+        (grams / step).quantize(
+            Decimal('1'),
+            rounding=ROUND_HALF_UP,
+        ) * step
+    )
+
+    # Rispetta i limiti anche dopo l'arrotondamento.
+    if rounded < floor:
+        rounded = (
+            (floor / step).to_integral_value(rounding=ROUND_CEILING)
+            * step
+        )
+
+    if rounded > MAX_GRAMS:
+        rounded = (
+            (MAX_GRAMS / step).to_integral_value(rounding=ROUND_FLOOR)
+            * step
+        )
+
+    return rounded
 
 
 def _has_fixed_grams(ingredient):
     return getattr(ingredient, 'category', None) == IngredientCategory.VEGETABLE
 
 
-def _minimum_grams(ingredient, macro_name=None):
+def _minimum_grams(ingredient, macro_name=None): # noqa
     if _has_fixed_grams(ingredient):
         return Decimal('1')
     if getattr(ingredient, 'category', None) == IngredientCategory.DAIRY:
