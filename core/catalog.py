@@ -499,17 +499,35 @@ def _seed_ingredients():
     return created
 
 
+def _customized_keys():
+    keys = set()
+    for name, seed_key in Meal.objects.filter(
+        is_system=True, customized=True
+    ).values_list('name', 'seed_key'):
+        keys.add(name)
+        if seed_key:
+            keys.add(seed_key)
+    return keys
+
+
 def _seed_system_meals():
-    ingredients_by_name = {ingredient.name: ingredient for ingredient in Ingredient.objects.all()}
+    ingredients_by_name = {i.name: i for i in Ingredient.objects.all()}
+    protected = _customized_keys()
     created_meals = 0
     keep_names = set(RECIPE_NAMES)
     for genre, name, spec in RECIPES:
+        if name in protected:
+            continue
         items = resolve_recipe_line(spec, ingredients_by_name)
         items = ensure_staple_carb(genre, name, items, ingredients_by_name)
         if _upsert_system_meal(name, genre, items):
             created_meals += 1
     deleted_meals = 0
-    stale = Meal.objects.filter(is_system=True).exclude(name__in=keep_names)
+    stale = (
+        Meal.objects.filter(is_system=True)
+        .exclude(name__in=keep_names)
+        .exclude(customized=True)
+    )
     for meal in stale:
         if meal.slots.exists():
             continue

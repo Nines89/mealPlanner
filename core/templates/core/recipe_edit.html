@@ -12,11 +12,11 @@
 
     {% if meal.source == 'notion' %}
     <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-900">
-        Ricetta importata da Notion: alla prossima sync la differenza verrà mostrata e, se applicata, ripristina i dati di Notion.
+        Ricetta importata da Notion: le tue modifiche restano finché la ricetta non cambia su Notion. Se cambia lì, la prossima sync le sostituisce (dopo la tua conferma).
     </p>
     {% elif meal.is_system %}
     <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-900">
-        Piatto di sistema (condiviso): <code>seed_catalog</code> lo ricostruisce da <code>recipes.py</code> e annulla queste modifiche.
+        Piatto di sistema (condiviso con tutti gli utenti): dopo il salvataggio <code>seed_catalog</code> non lo ricostruisce più.
     </p>
     {% endif %}
 

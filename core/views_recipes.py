@@ -27,6 +27,14 @@ def _group_by_genre(meals):
     return groups
 
 
+def _protect_from_seed(meal, original_name):
+    """Piatto di sistema modificato: seed_catalog non lo ricostruisce più."""
+    meal.customized = True
+    if not meal.seed_key:
+        meal.seed_key = original_name  # nome originale, per riconoscerlo anche se rinominato
+    meal.save(update_fields=['customized', 'seed_key'])
+
+
 @login_required
 @require_http_methods(['GET'])
 def recipe_list(request):
@@ -57,13 +65,17 @@ def recipe_list(request):
 def recipe_edit(request, pk):
     """Modifica nome, categoria e ingredienti di una ricetta."""
     meal = get_object_or_404(catalog_meals_for(request.user), pk=pk)
+    original_name = meal.name
     if request.method == 'POST':
         form = RecipeForm(request.POST, instance=meal)
         formset = RecipeIngredientFormSet(request.POST, instance=meal)
         if form.is_valid() and formset.is_valid():
+            changed = form.has_changed() or formset.has_changed()
             with transaction.atomic():
                 form.save()
                 formset.save()
+                if changed and meal.is_system:
+                    _protect_from_seed(meal, original_name)
             messages.success(request, f'Ricetta “{meal.name}” salvata.')
             return redirect(f"{reverse('core:recipes')}?open={meal.genre or NO_GENRE}")
     else:

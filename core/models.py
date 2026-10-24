@@ -411,6 +411,10 @@ class Meal(models.Model):
                 name='core_meal_owner_external_id_uniq',
             ),
         ]
+
+    customized = models.BooleanField(default=False)
+    source_hash = models.CharField(max_length=64, blank=True, default='')
+    seed_key = models.CharField(max_length=120, blank=True, default='')
     owner       = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='meals')
     is_system   = models.BooleanField(default=False)
     name        = models.CharField(max_length=120)

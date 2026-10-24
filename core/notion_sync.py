@@ -8,6 +8,8 @@ Flusso in due fasi:
 
 Contratto dati: vedi ``fetch_notion_recipes``.
 """
+import hashlib
+import json
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
@@ -86,7 +88,7 @@ def _normalize_grams(value):
         raise RecipeFormatError(f'grammi non numerici: {value!r}') from exc
     if grams <= 0:
         raise RecipeFormatError(f'grammi non positivi: {value!r}')
-    return str(grams)
+    return format(grams.normalize(), 'f')
 
 
 def _split_ingredient_string(part):
@@ -138,6 +140,23 @@ def normalize_recipe(raw):
     }
 
 
+def content_hash(recipe):
+    """
+    Impronta del contenuto Notion (nome, categoria, ingredienti senza ordine).
+    Salvata in Meal.source_hash: se non cambia, la sync non tocca la ricetta e
+    le modifiche fatte dall'app restano.
+    """
+    canonical = {
+        'name': recipe['name'],
+        'genre': recipe['genre'],
+        'ingredients': sorted(
+            (item['name'].strip().lower(), item['grams'] or '')
+            for item in recipe['ingredients']
+        ),
+    }
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
+
+
 def prepare_payload(raw_recipes):
     """
     Normalizza l'output di ``fetch_notion_recipes``. Il risultato è JSON-safe
@@ -172,6 +191,8 @@ class RecipeAction:
     changes: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     errors: list = field(default_factory=list)
+    source_hash: str = ''
+    refresh_hash: bool = False   # solo aggiornare l'impronta, nessun cambio di contenuto
 
 
 @dataclass
@@ -306,6 +327,7 @@ def _plan_recipe(recipe, catalog, existing, claimed):
         name=recipe['name'][:MEAL_NAME_MAX],
         genre=recipe['genre'],
         status=ERROR,
+        source_hash=content_hash(recipe),
     )
     _resolve_items(recipe, catalog, action)
     if action.errors:
@@ -327,9 +349,22 @@ def _plan_recipe(recipe, catalog, existing, claimed):
 
     claimed.add(meal.id)
     action.meal = meal
+    linked = meal.external_id == action.external_id
+    if linked and meal.source_hash == action.source_hash:
+        # Notion invariata dall'ultima sync: le modifiche fatte dall'app restano.
+        action.status = UNCHANGED
+        return action
     action.changes = _diff(meal, action)
-    needs_link = meal.external_id != action.external_id
-    action.status = UPDATE if (action.changes or needs_link) else UNCHANGED
+    if action.changes or not linked:
+        action.status = UPDATE
+        if meal.source_hash:
+            action.warnings.append(
+                'Notion modificata dall\'ultima sync: eventuali modifiche fatte '
+                'dall\'app su questa ricetta vengono sostituite'
+            )
+    else:
+        action.status = UNCHANGED
+        action.refresh_hash = True
     return action
 
 
@@ -398,6 +433,7 @@ def apply_plan(plan, owner, prune=False):
                 external_id=action.external_id,
                 source=SOURCE,
                 synced_at=now,
+                source_hash=action.source_hash,
             )
             _write_items(meal, action.items)
             result.created += 1
@@ -408,10 +444,16 @@ def apply_plan(plan, owner, prune=False):
             meal.external_id = action.external_id
             meal.source = SOURCE
             meal.synced_at = now
-            meal.save(update_fields=['name', 'genre', 'external_id', 'source', 'synced_at'])
+            meal.source_hash = action.source_hash
+            meal.save(
+                update_fields=['name', 'genre', 'external_id', 'source', 'synced_at', 'source_hash']
+            )
             _write_items(meal, action.items)
             result.updated += 1
         elif action.status == UNCHANGED:
+            if action.refresh_hash:
+                action.meal.source_hash = action.source_hash
+                action.meal.save(update_fields=['source_hash'])
             result.unchanged += 1
         else:
             result.errors += 1
