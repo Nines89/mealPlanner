@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, views_notion, views_recipes
 
 app_name = 'core'
 
@@ -14,4 +14,7 @@ urlpatterns = [
     path('famiglia/', views.household_manage, name='household'),
     path('lista-spesa/', views.shopping_list, name='shopping_list'),
     path('target-nuovo/', views.nutrition_target_edit, name='nutrition_target_edit'),
+    path('ricette/', views_recipes.recipe_list, name='recipes'),
+    path('ricette/sync/', views_notion.recipes_sync, name='recipes_sync'),
+    path('ricette/<int:pk>/', views_recipes.recipe_edit, name='recipe_edit'),
 ]

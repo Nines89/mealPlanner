@@ -403,6 +403,14 @@ class MealGenre(models.TextChoices):
 
 
 class Meal(models.Model):
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('owner', 'external_id'),
+                condition=models.Q(external_id__isnull=False),
+                name='core_meal_owner_external_id_uniq',
+            ),
+        ]
     owner       = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='meals')
     is_system   = models.BooleanField(default=False)
     name        = models.CharField(max_length=120)
@@ -415,6 +423,9 @@ class Meal(models.Model):
         help_text='Household recipe group (Pasta / Pollo / Pesce / …).',
     )
     ingredients = models.ManyToManyField(Ingredient, through='MealIngredient')
+    external_id = models.CharField(max_length=64, null=True, blank=True)
+    source = models.CharField(max_length=20, blank=True, default='')
+    synced_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         prefix = '[SYS] ' if self.is_system else ''

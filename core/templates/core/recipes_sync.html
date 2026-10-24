@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Sync ricette — Meal Planner{% endblock %}
+
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Sincronizza ricette da Notion</h1>
+    <p class="text-sm text-gray-500 mt-1">
+        Prima l’anteprima del confronto con il database, poi l’applicazione. Nulla viene scritto finché non confermi.
+    </p>
+</div>
+
+{% if not plan %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="preview">
+    <button type="submit" class="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-emerald-700">
+        Controlla aggiornamenti
+    </button>
+</form>
+{% else %}
+
+<div class="mb-5 flex flex-wrap gap-2 text-xs font-semibold">
+    <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">{{ plan.new|length }} nuove</span>
+    <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">{{ plan.updates|length }} modificate</span>
+    <span class="rounded-full bg-gray-100 px-3 py-1 text-gray-700">{{ plan.unchanged|length }} invariate</span>
+    <span class="rounded-full bg-red-100 px-3 py-1 text-red-700">{{ plan.errors|length }} errori</span>
+    <span class="rounded-full bg-gray-100 px-3 py-1 text-gray-700">{{ plan.orphans|length }} non più su Notion</span>
+</div>
+
+<div class="space-y-3 mb-6">
+    {% for action in plan.actions %}
+    {% if action.status != 'unchanged' %}
+    <article class="rounded-xl border bg-white p-4 shadow-sm
+        {% if action.status == 'error' %}border-red-200{% elif action.status == 'update' %}border-amber-200{% else %}border-emerald-200{% endif %}">
+        <div class="flex items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-gray-900">{{ action.name }}</h2>
+            <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide
+                {% if action.status == 'error' %}text-red-600{% elif action.status == 'update' %}text-amber-700{% else %}text-emerald-700{% endif %}">
+                {% if action.status == 'new' %}Nuova{% elif action.status == 'update' %}Modificata{% else %}Errore{% endif %}
+            </span>
+        </div>
+        {% if action.status == 'new' %}
+        <p class="mt-2 text-xs text-gray-600">
+            {% for ingredient, grams in action.items %}{{ ingredient.name }} {{ grams|floatformat:0 }} g{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+        {% if action.changes %}
+        <ul class="mt-2 space-y-0.5 text-xs text-gray-700">
+            {% for change in action.changes %}<li>{{ change }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% for warning in action.warnings %}<p class="mt-1 text-xs text-amber-700">⚠ {{ warning }}</p>{% endfor %}
+        {% for error in action.errors %}<p class="mt-1 text-xs text-red-600">✕ {{ error }}</p>{% endfor %}
+    </article>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% if plan.orphans %}
+<section class="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+    <h2 class="text-sm font-semibold text-gray-900">Nel database ma non più su Notion</h2>
+    <ul class="mt-2 text-xs text-gray-600 space-y-0.5">
+        {% for meal in plan.orphans %}<li>{{ meal.name }}</li>{% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if plan.has_changes or plan.orphans %}
+<form method="post" class="flex flex-wrap items-center gap-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="apply">
+    <button type="submit" class="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-emerald-700">
+        Applica
+    </button>
+    {% if plan.orphans %}
+    <label class="flex items-center gap-2 text-xs text-gray-600">
+        <input type="checkbox" name="prune" value="1">
+        Rimuovi anche quelle non più su Notion (solo se non usate in un piano)
+    </label>
+    {% endif %}
+    <a href="{% url 'core:recipes' %}" class="text-sm text-gray-600 hover:text-gray-900">Annulla</a>
+</form>
+{% else %}
+<p class="text-sm text-gray-600">Niente da applicare.
+    <a href="{% url 'core:recipes' %}" class="text-emerald-600 hover:text-emerald-800">Indietro</a>
+</p>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}

@@ -32,6 +32,7 @@
                 <a href="{% url 'core:week_plan' %}" class="text-emerald-600 hover:text-emerald-800 font-medium">Week plan</a>
                 <a href="{% url 'core:shopping_list' %}" class="text-gray-700 hover:text-gray-900 font-medium">Shopping list</a>
                 <a href="{% url 'core:household' %}" class="text-gray-700 hover:text-gray-900 font-medium">Household</a>
+                <a href="{% url 'core:recipes' %}" class="text-gray-700 hover:text-gray-900 font-medium">Ricette</a>
                 {% if request.user.is_authenticated %}
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
