@@ -13,6 +13,12 @@ import json
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
+from notion_lib import SimplePage, NFactory
+from notion_lib.client.auth import NotionApiClient
+from notion_lib.nModels.pages import PageFactory, DatabasePage, NPage
+from notion_lib.nModels.databases import DatabaseFactory
+from notion_lib.nTypes.ds_filters import S
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -30,6 +36,31 @@ NEW, UPDATE, UNCHANGED, ERROR = 'new', 'update', 'unchanged', 'error'
 # ─────────────────────────────────────────
 # DA IMPLEMENTARE (lato Notion)
 # ─────────────────────────────────────────
+
+class RetrieveAllRecipes:
+
+    ROOT_PAGE = "https://app.notion.com/p/Ricettari-cd2405b9dbda432e9f12bde99919e25e"
+
+    def __init__(self, api_key: str):
+        self.api = NotionApiClient(key=api_key)
+
+    def run(self):
+        print(f"Starting: {self.__class__.__name__}")
+        recs = self.collect_recipe()
+        print(recs)
+
+    def collect_recipe(self) -> None | list[dict]:
+        db_id = self._find_child_db(PageFactory.find(self.api.headers, self.ROOT_PAGE))
+        db = DatabaseFactory.find(self.api.headers, db_id)
+        return db.title
+
+    @staticmethod
+    def _find_child_db(page: NPage):
+        for child in page.get_children():
+            if child.type == "child_database":
+                return child.block_id
+        return None
+
 
 def fetch_notion_recipes():
     """
@@ -58,7 +89,10 @@ def fetch_notion_recipes():
     - Eccezioni (rete, auth, 403 se l'integrazione non è condivisa col database)
       vanno lasciate propagare: view e command le gestiscono.
     """
-    raise NotImplementedError('Implementare fetch_notion_recipes() con la libreria Notion.')
+    api = "secret_dmenkOROoW68ilWcGvmBS7PF49k5J1dAQbOx3KPhpz0"
+    RetrieveAllRecipes(api).run()
+
+    # raise NotImplementedError('Implementare fetch_notion_recipes() con la libreria Notion.')
 
 
 # ─────────────────────────────────────────
