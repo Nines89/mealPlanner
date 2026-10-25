@@ -10,6 +10,7 @@ Contratto dati: vedi ``fetch_notion_recipes``.
 """
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
@@ -89,7 +90,7 @@ def fetch_notion_recipes():
     - Eccezioni (rete, auth, 403 se l'integrazione non è condivisa col database)
       vanno lasciate propagare: view e command le gestiscono.
     """
-    api = "secret_dmenkOROoW68ilWcGvmBS7PF49k5J1dAQbOx3KPhpz0"
+    api = os.environ.get("REC_KEY")
     RetrieveAllRecipes(api).run()
 
     # raise NotImplementedError('Implementare fetch_notion_recipes() con la libreria Notion.')
