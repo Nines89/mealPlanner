@@ -31,6 +31,13 @@ from .targets import get_target_by_kind, targets_by_day
 
 WEEK_DAYS = range(7)
 
+_PREVIEW_ROLES = (
+    ('Prot', (IngredientCategory.PROTEIN, IngredientCategory.DAIRY)),
+    ('Carb', (IngredientCategory.CARB, IngredientCategory.FRUIT)),
+    ('Veg', (IngredientCategory.VEGETABLE,)),
+    ('Altro', (IngredientCategory.FAT, IngredientCategory.OTHER)),
+)
+
 
 def monday_of_week(for_date=None):
     """Monday of the ISO week that contains ``for_date`` (default: today)."""
@@ -247,7 +254,10 @@ def _assigned_sources_by_day(week_plan):
         .order_by('day', 'meal_slot__order')
     )
     for plan_slot in queryset:
-        ingredients = [row.ingredient for row in plan_slot.meal.meal_ingredients.all()]
+        ingredients = [
+            (row.ingredient, row.grams)
+            for row in plan_slot.meal.meal_ingredients.all()
+        ]
         if not ingredients:
             continue
         grouped.setdefault(plan_slot.day, []).append(
@@ -479,28 +489,49 @@ def _grid_cell(day, plan_slot):
     }
 
 
-def _meal_preview_items(meal, limit=3):
+def _meal_preview_items(meal):
+    """All ingredients, ordered protein → carbs → vegetables → other."""
     if meal is None:
         return []
-    items = []
     rows = list(meal.meal_ingredients.all())
-    # Always include the suggested vegetable in the compact card preview so
-    # the display-mode selector has a visible effect.
-    rows.sort(
-        key=lambda row: row.ingredient.category != IngredientCategory.VEGETABLE
-    )
-    for row in rows:
-        ingredient = row.ingredient
-        items.append(
-            {
-                'name': ingredient.name,
-                'vegetable_macro_category': _vegetable_macro_category(ingredient),
-                'grams': row.grams,
-            }
+    items = []
+    for label, categories in _PREVIEW_ROLES:
+        group = sorted(
+            (row for row in rows if row.ingredient.category in categories),
+            key=lambda row: row.grams,
+            reverse=True,
         )
-        if len(items) == limit:
-            break
+        if not group:
+            continue
+        if categories == (IngredientCategory.VEGETABLE,):
+            group_items = _vegetable_preview_items(group)
+        else:
+            group_items = [
+                {
+                    'name': row.ingredient.name,
+                    'vegetable_macro_category': '',
+                    'grams': row.grams,
+                }
+                for row in group
+            ]
+        for index, item in enumerate(group_items):
+            item['role'] = label if index == 0 else ''
+        items.extend(group_items)
     return items
+
+
+def _vegetable_preview_items(rows):
+    """One entry per vegetable macro category (names joined, grams summed)."""
+    buckets = {}
+    for row in rows:
+        key = _vegetable_macro_category(row.ingredient)
+        bucket = buckets.setdefault(
+            key,
+            {'name': [], 'vegetable_macro_category': key, 'grams': 0},
+        )
+        bucket['name'].append(row.ingredient.name)
+        bucket['grams'] += row.grams
+    return [{**b, 'name': ', '.join(b['name'])} for b in buckets.values()]
 
 
 def _vegetable_macro_category(ingredient):

@@ -25,6 +25,7 @@ VEG_MIN_GRAMS = Decimal('50')
 MAX_GRAMS = Decimal('9999')
 MIN_DAY_COVERAGE = Decimal('0.85')
 MAX_DAY_COVERAGE = Decimal('1.00')
+LEGUME_MAX_PROTEIN = Decimal('12')
 _COVERAGE_AIM = (MIN_DAY_COVERAGE + MAX_DAY_COVERAGE) / Decimal('2')
 _COVERAGE_EPS = Decimal('0.002')
 GENERATED_MEAL_MARKER = 'generated-by-filler'
@@ -97,6 +98,14 @@ def _minimum_grams(ingredient, macro_name=None): # noqa
     if getattr(ingredient, 'category', None) == IngredientCategory.DAIRY:
         return DAIRY_MIN_GRAMS
     return MIN_GRAMS
+
+
+def _is_legume_like(ingredient):
+    """Protein-category ingredient with more carbs than protein (legumes)."""
+    return (
+        getattr(ingredient, 'category', None) == IngredientCategory.PROTEIN
+        and Decimal(ingredient.carbs) > Decimal(ingredient.protein) > 0
+    )
 
 
 def grams_to_hit_macro(ingredient, macro_name, target_amount):
@@ -216,12 +225,16 @@ def scale_ingredients_to_budget(budget, ingredients):
     """Category-based grams from the slot budget. Vegetable grams stay as stored."""
     pairs = _normalize_source_items(ingredients)
     grouped = _group_items_by_category(pairs)
+    proteins = [i for i, _g in grouped[IngredientCategory.PROTEIN]]
+    legumes = [i for i in proteins if _is_legume_like(i)]
+    meats = [i for i in proteins if not _is_legume_like(i)]
     groups = [
-        ('protein', [ingredient for ingredient, _grams in grouped[IngredientCategory.PROTEIN]]),
-        ('protein', [ingredient for ingredient, _grams in grouped[IngredientCategory.DAIRY]]),
-        ('carbs', [ingredient for ingredient, _grams in grouped[IngredientCategory.CARB]]),
-        ('carbs', [ingredient for ingredient, _grams in grouped[IngredientCategory.FRUIT]]),
-        ('fat', [ingredient for ingredient, _grams in grouped[IngredientCategory.FAT]]),
+        ('protein', meats),
+        ('carbs', legumes
+         + [i for i, _g in grouped[IngredientCategory.CARB]]
+         + [i for i, _g in grouped[IngredientCategory.FRUIT]]),
+        ('protein', [i for i, _g in grouped[IngredientCategory.DAIRY]]),
+        ('fat', [i for i, _g in grouped[IngredientCategory.FAT]]),
     ]
     items = _scale_groups(budget, groups)
     items.extend(_fixed_vegetable_items(grouped[IngredientCategory.VEGETABLE]))

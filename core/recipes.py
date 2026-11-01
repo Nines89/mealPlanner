@@ -60,7 +60,7 @@ INGREDIENT_ALIASES = {
     'philadelphia protein': 'Philadelphia protein',
     'philadelphia': 'Philadelphia protein',
     'rucola': 'Rucola',
-    'legumi': 'Legumi misti cotti',
+    'legumi': 'Legumi misti secchi',
     'porro': 'Porro',
     'macinato di pollo': 'Macinato di pollo',
     'macinato': 'Macinato di manzo',

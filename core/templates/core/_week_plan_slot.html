@@ -57,13 +57,16 @@
             data-face-preview
             {% if not cell.preview %}hidden{% endif %}>
             {% for item in cell.preview %}
-            <li class="flex justify-between gap-2 text-xs">
-                <span class="truncate"
-                      {% if item.vegetable_macro_category %}
-                      data-vegetable-name="{{ item.name }}"
-                      data-vegetable-macro="{{ item.vegetable_macro_category }}"
-                      {% endif %}>{{ item.vegetable_macro_category|default:item.name }}</span>
-                <span class="shrink-0 tabular-nums opacity-80">{{ item.grams }}g</span>
+            <li class="flex items-baseline justify-between gap-2 text-xs">
+                <span class="min-w-0 truncate">
+                    <span class="mr-1 inline-block w-7 text-[9px] font-semibold uppercase tracking-wide opacity-60">{{ item.role }}</span><span
+                          title="{{ item.name }}"
+                          {% if item.vegetable_macro_category %}
+                          data-vegetable-name="{{ item.name }}"
+                          data-vegetable-macro="{{ item.vegetable_macro_category }}"
+                          {% endif %}>{{ item.vegetable_macro_category|default:item.name }}</span>
+                </span>
+                <span class="shrink-0 tabular-nums opacity-80">{{ item.grams|floatformat:0 }}g</span>
             </li>
             {% endfor %}
         </ul>
