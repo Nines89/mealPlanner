@@ -158,6 +158,8 @@ INGREDIENT_ALIASES = {
     'quinoa': 'Quinoa',
     '150 pomodorino': 'Pomodorini',
     '50 cipollotto': 'Cipollotto',
+    'cipolla rossa': 'Cipolla',
+    'aceto balsamico': 'Aceto',
 }
 
 # (genre, display name, comma-separated shorthand; a trailing number is grams)

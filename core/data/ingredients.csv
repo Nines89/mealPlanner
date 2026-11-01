@@ -146,7 +146,7 @@ Insalata mista,vegetable,leafy,17,1.3,3,0.2,1.5,1.2,0.03,0.03,vegan,all
 Verdure a foglia larga,vegetable,leafy,22,2.2,3.5,0.3,2,1.1,0.05,0.12,vegan,all
 Verdure cotte,vegetable,fruit_veg,40,1.5,7,0.5,2.5,3,0.1,0.2,vegan,all
 Mix soffritto,vegetable,bulb,35,1.2,7,0.2,2,3.5,0.04,0.05,vegan,all
-Legumi misti cotti,vegetable,legume,90,6.5,13,0.8,4.5,1.5,0.1,0.4,vegan,all
+Legumi misti cotti,protein,"",90,6.5,13,0.8,4.5,1.5,0.1,0.4,vegan,all
 Peperoncino,vegetable,fruit_veg,40,1.9,9,0.4,1.5,5.3,0.04,0.01,vegan,summer
 Prezzemolo,vegetable,leafy,36,3,6,0.8,3.3,0.9,0.1,0.06,vegan,all
 Salvia,vegetable,leafy,49,3.9,4,1.2,3.1,0.2,0.4,0.01,vegan,all
@@ -176,3 +176,15 @@ Pinoli,fat,,673,14,13,68,3.7,3.6,4.9,0,"vegan,nuts",all
 Semi misti,fat,,567,20,23,50,11,1.5,5,0.02,"vegan,nuts",all
 Pesca,fruit,,39,0.9,10,0.3,1.5,8,0.02,0,vegan,summer
 Melone,fruit,,34,0.8,8,0.2,0.9,8,0.05,0.02,vegan,summer
+Rosmarino,other,,0,0,0,0,0,0,0,0,vegan,all
+Origano,other,,0,0,0,0,0,0,0,0,vegan,all
+Menta,other,,0,0,0,0,0,0,0,0,vegan,all
+Paprika,other,,0,0,0,0,0,0,0,0,vegan,all
+Sedano Rapa,vegetable,root,29,1.9,3.8,0.1,2.5,0,0,0,vegan,"autumn,winter"
+Salsiccia di Pollo,protein,,180,16,1,12,,,3.6,1.8,,all
+Crescione,other,,0,0,0,0,0,0,0,0,vegan,all
+Acqua,other,,0,0,0,0,0,0,0,0,vegan,all
+Lievito,other,,0,0,0,0,0,0,0,0,vegan,all
+Sale,other,,0,0,0,0,0,0,0,0,vegan,all
+Zucchero,other,,0,0,0,0,0,0,0,0,vegan,all
+Semola,other,,0,0,0,0,0,0,0,0,vegan,all

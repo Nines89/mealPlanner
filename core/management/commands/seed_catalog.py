@@ -10,7 +10,7 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        stats = seed_catalog()
+        stats = seed_catalog(with_meals=False)
         self.stdout.write(
             self.style.SUCCESS(
                 'Catalog ready: '

@@ -10,18 +10,15 @@ Contratto dati: vedi ``fetch_notion_recipes``.
 """
 import hashlib
 import json
-import os
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
-from notion_lib import SimplePage, NFactory
-from notion_lib.client.auth import NotionApiClient
-from notion_lib.nModels.pages import PageFactory, DatabasePage, NPage
-from notion_lib.nModels.databases import DatabaseFactory
-from notion_lib.nTypes.ds_filters import S
-
 from django.db import transaction
 from django.utils import timezone
+from notion_lib import PageFactory, DataSourceFactory, NotionApiClient
+from notion_lib.nEndpoints.databases import get_db_datasources
+from notion_lib.nModels.pages import NPage
 
 from .catalog import default_grams_for, ensure_staple_carb
 from .models import Ingredient, Meal, MealGenre, MealIngredient
@@ -47,13 +44,58 @@ class RetrieveAllRecipes:
 
     def run(self):
         print(f"Starting: {self.__class__.__name__}")
-        recs = self.collect_recipe()
-        print(recs)
+        recs = self.retrieve_info_from_notion()
+        return [self._fix_record(rec) for rec in recs]
 
-    def collect_recipe(self) -> None | list[dict]:
+    def retrieve_info_from_notion(self):
+        recs = self._prop_recovery(self._collect_recipe())
+        return recs
+
+    def _collect_recipe(self) -> None | list[dict]:
+        """
+        - retrieve the first child database of the page
+        - for the given datasource
+        - retrieve all the ds entries
+        """
         db_id = self._find_child_db(PageFactory.find(self.api.headers, self.ROOT_PAGE))
-        db = DatabaseFactory.find(self.api.headers, db_id)
-        return db.title
+        ds_id = get_db_datasources(self.api.headers, db_id)[0]["id"]
+        ds = DataSourceFactory.find(self.api.headers, ds_id)
+        return ds.all_entries()
+
+    @staticmethod
+    def _prop_recovery(ds_entries: list[dict]) -> list[dict]:
+        return [
+            {"id": page["id"], **page.get("properties", {})}
+            for page in ds_entries
+        ]
+
+    @staticmethod
+    def _fix_record(record):
+        result = {"id": record["id"]}
+
+        for name, prop in record.items():
+            if name == "id":
+                continue
+
+            tipo = prop.get("type")
+            valore = prop.get(tipo)
+
+            if tipo in ("title", "rich_text"):
+                result[name] = "".join(
+                    elemento.get("plain_text", "")
+                    for elemento in (valore or [])
+                )
+            elif tipo == "select":
+                result[name] = valore["name"] if valore else None
+            elif tipo == "multi_select":
+                result[name] = [
+                    elemento["name"] for elemento in (valore or [])
+                ]
+            else:
+                result[name] = valore
+
+        return result
+
 
     @staticmethod
     def _find_child_db(page: NPage):
@@ -63,37 +105,47 @@ class RetrieveAllRecipes:
         return None
 
 
+def _as_list(value):
+    """Multi-select (lista) o testo separato da virgole/a capo → lista pulita."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = value.replace('\n', ',').split(',')
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _parse_vegetables(value):
+    """'Zucchine: 200' per riga → [{'name', 'grams'}]. Righe vuote ignorate."""
+    items = []
+    for line in str(value or '').split('\n'):
+        name, _sep, grams = line.partition(':')
+        name = name.strip()
+        if name:
+            # grammi passati così come sono: se non numerici, la ricetta
+            # compare nell'anteprima con l'errore preciso invece di crollare
+            items.append({'name': name, 'grams': grams.strip() or None})
+    return items
+
+
 def fetch_notion_recipes():
-    """
-    TODO: leggere TUTTE le ricette da Notion e restituire una lista di dict.
-
-    Un dict per ricetta:
-
-        {
-            'external_id': str,   # ID pagina Notion. Stabile, univoco, obbligatorio.
-            'name':        str,   # titolo ricetta, obbligatorio
-            'genre':       str,   # valore MealGenre ('pasta_cereali') oppure
-                                  # label ('Pasta / Cereali'); case-insensitive
-            'ingredients': [      # almeno 1 elemento
-                {'name': 'Pasta di semola', 'grams': 80},    # grams: numero, str o None
-                {'name': 'zucchina',        'grams': 200},
-                {'name': 'ricotta',         'grams': None},  # None → default di catalog.py
-            ],
-        }
-
-    Note:
-    - ``ingredients`` può essere anche una stringa nel formato di recipes.py
-      (``'pasta, zucchina 200, ricotta'``): viene parsata qui.
-    - ``name`` ingrediente: nome esatto del catalogo (``Ingredient.name``) oppure
-      alias di ``recipes.INGREDIENT_ALIASES``. Confronto case-insensitive.
-    - Niente I/O Django qui dentro e niente scritture: solo lettura da Notion.
-    - Eccezioni (rete, auth, 403 se l'integrazione non è condivisa col database)
-      vanno lasciate propagare: view e command le gestiscono.
-    """
-    api = os.environ.get("REC_KEY")
-    RetrieveAllRecipes(api).run()
-
-    # raise NotImplementedError('Implementare fetch_notion_recipes() con la libreria Notion.')
+    token = "secret_dmenkOROoW68ilWcGvmBS7PF49k5J1dAQbOx3KPhpz0"
+    if not token:
+        raise RuntimeError('REC_KEY non impostata: serve il token Notion.')
+    recipes = []
+    for raw in RetrieveAllRecipes(token).run():
+        ingredients = (
+            [{'name': n, 'grams': None} for n in _as_list(raw.get('Proteine'))]
+            + _parse_vegetables(raw.get('Verdure (g)'))
+            + [{'name': n, 'grams': None} for n in _as_list(raw.get('Cereali'))]
+            + [{'name': n, 'grams': None} for n in _as_list(raw.get('Condimenti'))]
+        )
+        recipes.append({
+            'external_id': str(raw['id']),
+            'name': str(raw.get('Nome') or '').strip(),
+            'genre': str(raw.get('Categoria') or ''),
+            'ingredients': ingredients,
+        })
+    return recipes
 
 
 # ─────────────────────────────────────────
@@ -108,6 +160,12 @@ _GENRE_LOOKUP = {}
 for _value, _label in MealGenre.choices:
     _GENRE_LOOKUP[_value.lower()] = _value
     _GENRE_LOOKUP[str(_label).lower()] = _value
+# Etichette usate su Notion che differiscono dalle label di MealGenre.
+_GENRE_LOOKUP.update({
+    'pollo': 'pollo_tacchino',
+    'pasta e cereali': 'pasta_cereali',
+    'verdure': 'verdura',
+})
 
 
 def _peek(raw, key):
@@ -121,9 +179,19 @@ def _normalize_grams(value):
         grams = Decimal(str(value).strip().replace(',', '.'))
     except InvalidOperation as exc:
         raise RecipeFormatError(f'grammi non numerici: {value!r}') from exc
+    if grams == -1:
+        return None  # convenzione Notion: -1 = quantità non specificata
     if grams <= 0:
         raise RecipeFormatError(f'grammi non positivi: {value!r}')
     return format(grams.normalize(), 'f')
+
+
+# 'olive nere 50 g' → nome + grammi. L'unità è obbligatoria: 'pane tipo 00' è un alias valido.
+_TRAILING_QTY = re.compile(
+    r'^(?P<name>.+?)\s+(?P<grams>\d+(?:[.,]\d+)?)\s*(?:g|gr|grammi)\.?$', re.IGNORECASE
+)
+# Segnaposto di Notion: non sono ingredienti.
+_PLACEHOLDER_NAMES = {'a scelta', 'xxx', 'q.b.', 'qb', 'quanto basta'}
 
 
 def _split_ingredient_string(part):
@@ -148,6 +216,12 @@ def _normalize_ingredients(value):
         name = str(name or '').strip()
         if not name:
             raise RecipeFormatError('ingrediente senza nome')
+        if name.lower() in _PLACEHOLDER_NAMES:
+            continue
+        if grams in (None, ''):
+            match = _TRAILING_QTY.match(name)
+            if match:
+                name, grams = match['name'].strip(), match['grams']
         result.append({'name': name, 'grams': _normalize_grams(grams)})
     return result
 
@@ -269,13 +343,18 @@ class SyncResult:
     prune_skipped: int = 0
 
 
+def _fold(name):
+    """Minuscolo e apostrofo tipografico → ASCII (Notion usa ’, gli alias usano ')."""
+    return name.strip().lower().replace('\u2019', "'")
+
+
 class _CatalogIndex:
     def __init__(self):
         self.by_name = {ing.name: ing for ing in Ingredient.objects.all()}
-        self.by_lower = {name.lower(): ing for name, ing in self.by_name.items()}
+        self.by_lower = {_fold(name): ing for name, ing in self.by_name.items()}
 
     def resolve(self, name):
-        key = name.strip().lower()
+        key = _fold(name)
         ingredient = self.by_lower.get(key)
         if ingredient is None:
             alias = INGREDIENT_ALIASES.get(key)
@@ -297,10 +376,6 @@ class _OwnerMeals:
         for meal in self.all:
             if not meal.external_id:
                 self.unlinked_by_name.setdefault(meal.name.lower(), meal)
-        self.system_names = {
-            name.lower()
-            for name in Meal.objects.filter(is_system=True).values_list('name', flat=True)
-        }
 
     def orphans(self, incoming_ids):
         return [
@@ -376,10 +451,6 @@ def _plan_recipe(recipe, catalog, existing, claimed):
             action.warnings.append('collegata a una ricetta esistente con lo stesso nome')
     if meal is None:
         action.status = NEW
-        if action.name.lower() in existing.system_names:
-            action.warnings.append(
-                'stesso nome di un piatto di sistema: comparirà due volte nel pool'
-            )
         return action
 
     claimed.add(meal.id)

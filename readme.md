@@ -1,0 +1,1 @@
+py manage.py seed_catalog -> con questo riesco a allineare gli ingredienti una volta assegnati

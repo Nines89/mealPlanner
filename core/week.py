@@ -224,8 +224,11 @@ def _update_grid_genre(week_plan, existing_slot, genre):
 
 
 def catalog_meals_for(user):
-    return Meal.objects.filter(Q(is_system=True) | Q(owner=user)).exclude(
-        description=GENERATED_MEAL_MARKER,
+    notion_names = Meal.objects.filter(owner=user, source='notion').values('name')
+    return (
+        Meal.objects.filter(Q(is_system=True) | Q(owner=user))
+        .exclude(description=GENERATED_MEAL_MARKER)
+        .exclude(is_system=True, name__in=notion_names)
     )
 
 
