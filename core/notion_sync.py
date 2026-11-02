@@ -10,6 +10,7 @@ Contratto dati: vedi ``fetch_notion_recipes``.
 """
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -128,7 +129,7 @@ def _parse_vegetables(value):
 
 
 def fetch_notion_recipes():
-    token = "secret_dmenkOROoW68ilWcGvmBS7PF49k5J1dAQbOx3KPhpz0"
+    token = os.environ.get('REC_KEY', '').strip()
     if not token:
         raise RuntimeError('REC_KEY non impostata: serve il token Notion.')
     recipes = []
