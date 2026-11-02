@@ -1,4 +1,6 @@
 """Current-week plan: retrieve, grid, ON/OFF days, random dish from category."""
+from django.db import transaction
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 from random import choice, choices
@@ -37,6 +39,47 @@ _PREVIEW_ROLES = (
     ('Veg', (IngredientCategory.VEGETABLE,)),
     ('Altro', (IngredientCategory.FAT, IngredientCategory.OTHER)),
 )
+
+
+
+
+def _slot_state(row):
+    return (row.genre, row.meal_id, row.skipped) if row else ('', None, False)
+
+
+def _write_slot_state(week_plan, day, meal_slot, row, state):
+    genre, meal_id, skipped = state
+    if not genre and meal_id is None and not skipped:
+        if row:
+            row.delete()
+        return
+    if row is None:
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan, day=day, meal_slot=meal_slot,
+            genre=genre, meal_id=meal_id, skipped=skipped,
+        )
+        return
+    row.genre, row.meal_id, row.skipped = genre, meal_id, skipped
+    row.save(update_fields=['genre', 'meal', 'skipped'])
+
+
+def swap_slots(week_plan, day_a, slot_a, day_b, slot_b):
+    """Swap category, dish and skip flag between two cells. Returns False if no-op."""
+    if (day_a, slot_a.id) == (day_b, slot_b.id):
+        return False
+    with transaction.atomic():
+        rows = {
+            (r.day, r.meal_slot_id): r
+            for r in WeekPlanSlot.objects.select_for_update().filter(week_plan=week_plan)
+            if (r.day, r.meal_slot_id) in ((day_a, slot_a.id), (day_b, slot_b.id))
+        }
+        row_a, row_b = rows.get((day_a, slot_a.id)), rows.get((day_b, slot_b.id))
+        state_a, state_b = _slot_state(row_a), _slot_state(row_b)
+        if state_a == state_b:
+            return False
+        _write_slot_state(week_plan, day_a, slot_a, row_a, state_b)
+        _write_slot_state(week_plan, day_b, slot_b, row_b, state_a)
+    return True
 
 
 def monday_of_week(for_date=None):

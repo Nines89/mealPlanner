@@ -82,6 +82,10 @@
         <input type="hidden" name="form_id" value="" data-week-form-id>
         <input type="hidden" name="rebuild_day" value="" data-rebuild-day>
         <input type="hidden" name="rebuild_slot_id" value="" data-rebuild-slot>
+        <input type="hidden" name="swap_from_day" value="" data-swap-from-day>
+        <input type="hidden" name="swap_from_slot_id" value="" data-swap-from-slot>
+        <input type="hidden" name="swap_to_day" value="" data-swap-to-day>
+        <input type="hidden" name="swap_to_slot_id" value="" data-swap-to-slot>
 
         <div class="week-plan-dock fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:static lg:z-auto lg:rounded-2xl lg:border lg:border-gray-200 lg:bg-white lg:p-4 lg:shadow-sm"
              style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
@@ -162,5 +166,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/week_plan.js' %}?v=skip-1"></script>
+<script src="{% static 'js/week_plan.js' %}?v=swap-2"></script>
 {% endblock %}

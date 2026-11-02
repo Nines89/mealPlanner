@@ -23,7 +23,7 @@ from .week import (
     save_day_kinds,
     save_genre_grid,
     week_plan_for_monday,
-    week_plan_page_context,
+    week_plan_page_context, swap_slots,
 )
 
 
@@ -133,6 +133,7 @@ def _handle_week_plan_post(request, week_plan):
         'meal_grid': _save_week_genre_grid,
         'build': _build_week_meals,
         'rebuild_slot': _rebuild_week_slot,
+        'swap_slots': _swap_week_slots,
     }
     handler = handlers.get(request.POST.get('form_id'))
     if handler is None:
@@ -359,3 +360,25 @@ def shopping_list(request):
             'rows': rows,
         },
     )
+
+def _posted_ref(post_data, day_key, slot_key):
+    try:
+        day = int(post_data.get(day_key, ''))
+        slot_id = int(post_data.get(slot_key, ''))
+    except (TypeError, ValueError):
+        return None, None
+    return (day, slot_id) if day in range(7) else (None, None)
+
+
+def _swap_week_slots(request, week_plan):
+    meal_slots = _planner_meal_slots(request.user)
+    _save_posted_day_kinds(week_plan, request.POST)
+    save_genre_grid(week_plan, meal_slots, request.POST)
+    by_id = {slot.id: slot for slot in meal_slots}
+    day_a, id_a = _posted_ref(request.POST, 'swap_from_day', 'swap_from_slot_id')
+    day_b, id_b = _posted_ref(request.POST, 'swap_to_day', 'swap_to_slot_id')
+    if day_a is None or day_b is None or id_a not in by_id or id_b not in by_id:
+        messages.error(request, 'Those slots could not be swapped.')
+    elif swap_slots(week_plan, day_a, by_id[id_a], day_b, by_id[id_b]):
+        messages.success(request, 'Meals swapped.')
+    return _week_plan_redirect(request)

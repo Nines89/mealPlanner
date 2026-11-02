@@ -32,6 +32,7 @@
       chip.addEventListener('click', onPaletteClick);
     });
     root.querySelectorAll('[data-drop-cell]').forEach(function (cell) {
+      cell.addEventListener('pointerdown', onCellPointerDown);
       cell.addEventListener('click', onCellClick);
       refreshCell(cell);
     });
@@ -115,6 +116,23 @@
       genre: chip.dataset.genre || '',
       label: chip.dataset.label || '',
       tone: chip.dataset.genre || '',
+    });
+  }
+
+  function onCellPointerDown(event) {
+    if (!isMousePointer(event) || event.target.closest('[data-clear-cell], [data-change-category]')) {
+      return;
+    }
+    const cell = event.currentTarget;
+    if (!cell.hasAttribute('data-has-meal')) {
+      return;
+    }
+    startDrag(event, {
+      kind: 'cell',
+      source: cell,
+      genre: cellGenre(cell),
+      label: cell.dataset.mealName || '',
+      tone: cellGenre(cell),
     });
   }
 
@@ -257,6 +275,20 @@ function assignSkip(cell, skipped) {
     submitWeekForm('rebuild_slot');
   }
 
+   function submitSwap(from, to) {
+    const set = function (selector, value) {
+      const input = root.querySelector(selector);
+      if (input) {
+        input.value = value;
+      }
+    };
+    set('[data-swap-from-day]', from.dataset.day || '');
+    set('[data-swap-from-slot]', from.dataset.slotId || '');
+    set('[data-swap-to-day]', to.dataset.day || '');
+    set('[data-swap-to-slot]', to.dataset.slotId || '');
+    submitWeekForm('swap_slots');
+  }
+
   function submitWeekForm(formId) {
     if (!form || !formIdInput || !formId) {
       return;
@@ -371,7 +403,16 @@ function assignSkip(cell, skipped) {
       }, 50);
     }
     endDrag();
-    if (!active.moved || !target || !active.genre) {
+    if (!active.moved || !target) {
+      return;
+    }
+    if (active.kind === 'cell') {
+      if (target !== active.source) {
+        submitSwap(active.source, target);
+      }
+      return;
+    }
+    if (!active.genre) {
       return;
     }
     assignCell(target, active.genre);
