@@ -142,6 +142,22 @@
   display: none;
 }
 
+.week-plan-cell:not([data-has-meal]) .week-plan-swap {
+  display: none;
+}
+
+.week-plan-cell.is-swap-source .week-plan-face,
+.week-plan-cell[data-has-meal].is-swap-source .week-plan-face {
+  outline: 3px solid #059669;
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 2px #fff, 0 0 0 3px #059669;
+  transform: scale(1.02);
+}
+
+.week-plan-root.is-swap-mode .week-plan-cell:not(.is-swap-source) {
+  cursor: copy;
+}
+
 .week-plan-root.is-ready .week-plan-kind-native {
   position: absolute;
   width: 1px;
