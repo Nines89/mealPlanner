@@ -77,4 +77,11 @@
             aria-label="Clear {{ entry.slot.name }} on {{ day.label }}">
         ×
     </button>
+    <button type="button"
+            class="week-plan-swap absolute -left-1.5 -top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-sm leading-none text-gray-500 shadow-sm hover:bg-emerald-50 hover:text-emerald-700"
+            data-swap-cell
+            aria-label="Swap {{ entry.slot.name }} on {{ day.label }} with another meal"
+            {% if not cell.meal %}hidden{% endif %}>
+        ⇄
+    </button>
 </div>

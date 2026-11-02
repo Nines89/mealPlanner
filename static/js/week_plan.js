@@ -20,6 +20,7 @@
   let pickerCell = null;
   let drag = null;
   let ignoreClick = false;
+  let swapSource = null;
 
   root.classList.add('is-ready');
   bindBoard();
@@ -27,6 +28,9 @@
   keepWeekScroll();
 
   function bindBoard() {
+    root.querySelectorAll('[data-swap-cell]').forEach(function (button) {
+      button.addEventListener('click', onSwapButtonClick);
+    });
     root.querySelectorAll('[data-genre-chip]').forEach(function (chip) {
       chip.addEventListener('pointerdown', onPalettePointerDown);
       chip.addEventListener('click', onPaletteClick);
@@ -140,11 +144,20 @@
     if (ignoreClick) {
       return;
     }
-    if (event.target.closest('[data-clear-cell], [data-change-category]')) {
+    if (event.target.closest('[data-clear-cell], [data-change-category], [data-swap-cell]')) {
+      return;
+    }
+    const cell = event.currentTarget;
+    if (swapSource) {
+      event.preventDefault();
+      if (cell !== swapSource) {
+        submitSwap(swapSource, cell);
+      } else {
+        cancelSwapMode();
+      }
       return;
     }
     event.preventDefault();
-    const cell = event.currentTarget;
     if (selectedGenre) {
       assignCell(cell, selectedGenre);
       submitRebuild(cell);
@@ -341,6 +354,9 @@ function assignSkip(cell, skipped) {
   function onPickerKey(event) {
     if (event.key === 'Escape' && picker && !picker.hidden) {
       closePicker();
+    }
+    if (event.key === 'Escape' && swapSource) {
+      cancelSwapMode();
     }
   }
 
@@ -587,6 +603,38 @@ function assignSkip(cell, skipped) {
     if (live) {
       live.textContent = text;
     }
+  }
+
+  function onSwapButtonClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const cell = event.currentTarget.closest('[data-drop-cell]');
+    if (!cell) {
+      return;
+    }
+    if (swapSource === cell) {
+      cancelSwapMode();
+      return;
+    }
+    startSwapMode(cell);
+  }
+
+  function startSwapMode(cell) {
+    cancelSwapMode();
+    swapSource = cell;
+    cell.classList.add('is-swap-source');
+    root.classList.add('is-swap-mode');
+    setHint('Swapping ' + cellTitle(cell) + ': tap another slot, or ⇄ again to cancel.');
+    announce('Swap mode: choose the slot to swap with ' + cellTitle(cell));
+  }
+
+  function cancelSwapMode() {
+    if (swapSource) {
+      swapSource.classList.remove('is-swap-source');
+    }
+    swapSource = null;
+    root.classList.remove('is-swap-mode');
+    setHint(defaultHint);
   }
 })();
 
