@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Shopping list — Meal Planner{% endblock %}
 
@@ -24,7 +25,7 @@
 {% elif not rows %}
 <p class="text-sm text-gray-600">No meals assigned this week. Choose categories and click Build on the week plan.</p>
 {% else %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-shopping-list data-owner="{{ request.user.id }}" data-week="{{ week_start|date:'Y-m-d' }}">
     <table class="min-w-full text-sm text-left">
         <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
@@ -40,13 +41,21 @@
             </tr>
             {% endifchanged %}
             <tr>
-                <td class="px-4 py-2 text-gray-900">{{ row.name }}</td>
+                <td class="px-4 py-2 text-gray-900">
+                    <button type="button" class="mr-2 inline-flex cursor-grab touch-none select-none text-gray-400 hover:text-gray-700 focus:text-gray-700" data-drag-handle data-ingredient="{{ row.ingredient_id }}" aria-label="Sposta {{ row.name }}" title="Trascina per riordinare">⠿</button>
+                    {{ row.name }}
+                </td>
                 <td class="px-4 py-2 text-gray-800 text-right tabular-nums">{{ row.quantity }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+<p class="sr-only" data-shopping-status aria-live="polite"></p>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/shopping_list.js' %}?v=shopping-list-dnd-2" defer></script>
 {% endblock %}
