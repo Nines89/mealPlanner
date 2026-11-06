@@ -28,15 +28,20 @@
     <table class="min-w-full text-sm text-left">
         <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="px-4 py-3 font-semibold text-gray-700">Ingredient</th>
-                <th class="px-4 py-3 font-semibold text-gray-700 text-right">Grams</th>
+                <th class="px-4 py-3 font-semibold text-gray-700">Ingrediente</th>
+                <th class="px-4 py-3 font-semibold text-gray-700 text-right">Quantità</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
             {% for row in rows %}
+            {% ifchanged row.section %}
+            <tr class="bg-gray-50">
+                <th colspan="2" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">{{ row.section }}</th>
+            </tr>
+            {% endifchanged %}
             <tr>
                 <td class="px-4 py-2 text-gray-900">{{ row.name }}</td>
-                <td class="px-4 py-2 text-gray-800 text-right tabular-nums">{{ row.grams|floatformat:0 }} g</td>
+                <td class="px-4 py-2 text-gray-800 text-right tabular-nums">{{ row.quantity }}</td>
             </tr>
             {% endfor %}
         </tbody>

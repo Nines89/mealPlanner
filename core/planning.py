@@ -625,6 +625,11 @@ def shopping_list_for_plan(week_plan, member_count):
             continue
         for _meal_slot, _name, _genre, items in scale_day_meals(target, all_slots, sources):
             for ingredient, grams in items:
+                if (
+                    ingredient.category == IngredientCategory.FAT
+                    and 'olio' in ingredient.name.casefold()
+                ):
+                    continue
                 totals[ingredient.id] += Decimal(grams) * multiplier
                 ingredients[ingredient.id] = ingredient
     rows = [
@@ -635,5 +640,39 @@ def shopping_list_for_plan(week_plan, member_count):
         }
         for ingredient_id, grams in totals.items()
     ]
-    rows.sort(key=lambda row: row['name'].lower())
+    section_for_category = {
+        IngredientCategory.CARB: (0, 'Carboidrati'),
+        IngredientCategory.FRUIT: (0, 'Carboidrati'),
+        IngredientCategory.PROTEIN: (1, 'Proteine e latticini'),
+        IngredientCategory.DAIRY: (1, 'Proteine e latticini'),
+        IngredientCategory.FAT: (2, 'Grassi e altri'),
+        IngredientCategory.OTHER: (2, 'Grassi e altri'),
+        IngredientCategory.VEGETABLE: (3, 'Vegetali'),
+    }
+    category_order = {
+        IngredientCategory.CARB: 0,
+        IngredientCategory.FRUIT: 1,
+        IngredientCategory.PROTEIN: 0,
+        IngredientCategory.DAIRY: 1,
+        IngredientCategory.FAT: 0,
+        IngredientCategory.OTHER: 1,
+        IngredientCategory.VEGETABLE: 0,
+    }
+    for row in rows:
+        category = row['ingredient'].category
+        row['section_order'], row['section'] = section_for_category.get(
+            category, (2, 'Grassi e altri')
+        )
+        row['category_order'] = category_order.get(category, 2)
+        row['quantity'] = _shopping_quantity(row['grams'])
+    rows.sort(key=lambda row: (
+        row['section_order'], row['category_order'], row['name'].lower()
+    ))
     return rows
+
+
+def _shopping_quantity(grams):
+    if grams < Decimal('1000'):
+        return f'{grams:.0f} g'
+    kilograms = (grams / Decimal('1000')).normalize()
+    return f'{str(kilograms).replace(".", ",")} kg'
