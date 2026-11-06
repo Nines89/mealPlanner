@@ -16,7 +16,9 @@ from .models import (
     Ingredient,
     IngredientCategory,
     MealSlotTarget,
+    MealSlot,
 )
+from .targets import targets_by_day
 
 GRAMS_QUANTIZE = Decimal('10')
 MIN_GRAMS = Decimal('5')
@@ -587,21 +589,44 @@ def generated_meal_name(day, meal_slot):
 
 def shopping_list_for_plan(week_plan, member_count):
     """
-    Aggregate plate grams across the week, multiplied by household size.
+    Aggregate the planned (rescaled) plate grams across the week, multiplied by household size.
     Returns a list of dicts: name, grams, ingredient.
     """
     multiplier = Decimal(member_count or 1)
     totals = defaultdict(lambda: Decimal('0'))
     ingredients = {}
-    slots = week_plan.slots.select_related('meal').prefetch_related(
-        'meal__meal_ingredients__ingredient'
+    all_slots = list(
+        MealSlot.objects.filter(user=week_plan.owner).order_by('order', 'id')
     )
-    for slot in slots:
-        if slot.meal_id is None:
+    day_targets = targets_by_day(week_plan)
+    plan_slots = week_plan.slots.select_related('meal', 'meal_slot').prefetch_related(
+        'meal__meal_ingredients__ingredient'
+    ).order_by('day', 'meal_slot__order', 'id')
+    sources_by_day = defaultdict(list)
+    for plan_slot in plan_slots:
+        if plan_slot.meal_id is None:
             continue
-        for meal_ingredient in slot.meal.meal_ingredients.all():
-            totals[meal_ingredient.ingredient_id] += Decimal(meal_ingredient.grams) * multiplier
-            ingredients[meal_ingredient.ingredient_id] = meal_ingredient.ingredient
+        recipe_items = [
+            (row.ingredient, row.grams)
+            for row in plan_slot.meal.meal_ingredients.all()
+        ]
+        if not recipe_items:
+            continue
+        sources_by_day[plan_slot.day].append((
+            plan_slot.meal_slot,
+            plan_slot.meal.name,
+            plan_slot.genre or plan_slot.meal.genre or '',
+            recipe_items,
+        ))
+
+    for day, sources in sources_by_day.items():
+        target = day_targets.get(day)
+        if target is None:
+            continue
+        for _meal_slot, _name, _genre, items in scale_day_meals(target, all_slots, sources):
+            for ingredient, grams in items:
+                totals[ingredient.id] += Decimal(grams) * multiplier
+                ingredients[ingredient.id] = ingredient
     rows = [
         {
             'ingredient': ingredients[ingredient_id],
