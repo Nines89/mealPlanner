@@ -40,10 +40,12 @@ from .planning import (
     fit_day_coverage,
     scale_ingredients_to_budget,
     scale_plate,
+    _cap_eggs_per_portion,
     shopping_list_for_plan,
 )
+from .quantities import format_ingredient_quantity
 from .targets import ensure_on_off_targets, get_target_by_kind
-from .week import monday_of_week
+from .week import _meal_preview_items, monday_of_week
 
 
 def _ing(**kwargs):
@@ -75,6 +77,44 @@ def _day_coverage_ratios(lunch, dinner, target):
         for name in daily
         if daily[name] > 0 and combined[name] > 0
     }
+
+
+class IngredientQuantityDisplayTests(TestCase):
+    def test_whole_eggs_display_as_counts_and_round_up_for_shopping(self):
+        eggs = SimpleNamespace(name='Uova intere')
+
+        self.assertEqual(format_ingredient_quantity(eggs, Decimal('100')), '2 uova')
+        self.assertEqual(format_ingredient_quantity(eggs, Decimal('75')), '1,5 uova')
+        self.assertEqual(
+            format_ingredient_quantity(eggs, Decimal('75'), whole_pieces=True),
+            '2 uova',
+        )
+
+    def test_other_ingredients_keep_gram_units(self):
+        rice = SimpleNamespace(name='Riso basmati')
+
+        self.assertEqual(format_ingredient_quantity(rice, Decimal('80')), '80 g')
+
+    def test_recipe_portion_caps_whole_eggs_at_three(self):
+        eggs = SimpleNamespace(name='Uova intere')
+        spinach = SimpleNamespace(name='Spinaci')
+
+        capped = _cap_eggs_per_portion([(eggs, Decimal('200')), (spinach, Decimal('80'))])
+
+        self.assertEqual(capped[0][1], Decimal('150.0'))
+        self.assertEqual(capped[1][1], Decimal('80'))
+
+    def test_week_plan_preview_rounds_egg_count_up_to_whole_eggs(self):
+        eggs = Ingredient.objects.create(
+            name='Uova intere', category=IngredientCategory.PROTEIN,
+            kcal=143, protein=13, carbs=1, fat=10,
+        )
+        meal = Meal.objects.create(name='Omelette', genre=MealGenre.UOVA)
+        MealIngredient.objects.create(meal=meal, ingredient=eggs, grams=Decimal('76'))
+
+        preview = _meal_preview_items(meal)
+
+        self.assertEqual(preview[0]['quantity'], '2 uova')
 
 
 class WeekPlanMealGridTests(TestCase):
@@ -162,6 +202,24 @@ class WeekPlanMealGridTests(TestCase):
         self.assertIsNone(lunch.meal)
         self.assertEqual(dinner.genre, MealGenre.PESCE)
         self.assertIsNone(dinner.meal)
+
+    def test_recipe_preview_shows_household_multiplier(self):
+        week_plan = WeekPlan.objects.create(owner=self.user, week_start=monday_of_week())
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan,
+            day=0,
+            meal_slot=self.lunch_slot,
+            genre=MealGenre.ZUPPE,
+            meal=self.soup,
+        )
+
+        one_person_page = self.client.get(reverse('core:week_plan'))
+        self.assertContains(one_person_page, '×1')
+
+        household = Household.ensure_for_user(self.user)
+        household.add_named_member('Second person')
+        two_person_page = self.client.get(reverse('core:week_plan'))
+        self.assertContains(two_person_page, '×2')
 
     def test_user_can_update_and_clear_categories(self):
         week_plan = WeekPlan.objects.create(owner=self.user, week_start=monday_of_week())
@@ -286,6 +344,7 @@ class WeekPlanMealGridTests(TestCase):
         self.assertContains(page, 'data-has-meal')
         self.assertContains(page, 'data-face-title')
         self.assertContains(page, 'Zuppa di Carote')
+        self.assertContains(page, '×1')
 
     def test_build_leaves_category_when_catalog_is_empty(self):
         response = self._post_grid(
@@ -300,7 +359,7 @@ class WeekPlanMealGridTests(TestCase):
         self.assertEqual(lunch.genre, MealGenre.UOVA)
         self.assertIsNone(lunch.meal)
 
-    def test_week_plan_defaults_to_vegetable_macro_category_display(self):
+    def test_week_plan_defaults_to_recipe_vegetable_display(self):
         self._post_grid(
             {(0, self.lunch_slot.id): MealGenre.ZUPPE},
             form_id='build',
@@ -309,10 +368,12 @@ class WeekPlanMealGridTests(TestCase):
         response = self.client.get(reverse('core:week_plan'))
 
         self.assertContains(response, 'data-vegetable-view="macro"')
+        self.assertContains(response, 'data-vegetable-view="recipe"')
+        self.assertContains(response, 'aria-pressed="true">Recipe vegetable</button>')
         self.assertContains(response, 'Macro category')
         self.assertContains(response, 'Recipe vegetable')
         self.assertContains(response, 'data-vegetable-name="Broccoli"')
-        self.assertContains(response, 'data-vegetable-macro="Flower vegetables"')
+        self.assertContains(response, 'data-vegetable-macro="Vegetale - Fiore"')
 
     def test_user_can_open_and_save_the_next_week(self):
         next_monday = monday_of_week() + timedelta(days=7)

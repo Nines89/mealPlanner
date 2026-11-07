@@ -1,6 +1,6 @@
 (function () {
   const SCROLL_KEY = 'mealplanner-week-scroll';
-  const VEGETABLE_VIEW_KEY = 'mealplanner-vegetable-view';
+  const VEGETABLE_VIEW_KEY = 'mealplanner-vegetable-view-v2';
   const DRAG_THRESHOLD = 8;
   const root = document.querySelector('[data-week-plan]');
   if (!root) {
@@ -72,7 +72,7 @@
     if (!buttons.length) {
       return;
     }
-    let view = 'macro';
+    let view = 'recipe';
     try {
       view = localStorage.getItem(VEGETABLE_VIEW_KEY) || view;
     } catch (ignore) {}

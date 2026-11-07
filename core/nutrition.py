@@ -9,6 +9,7 @@ from decimal import Decimal
 from .macros import GRAMS_PER_100, empty_macros, scale_macros, sum_macros
 from .models import MealGenre
 from .planning import slot_budget  # nuovo import in testa al file
+from .quantities import format_ingredient_quantity
 
 _DAYS = range(7)
 
@@ -32,6 +33,7 @@ def _macros_for_meal_ingredient(meal_ingredient):
         'carbs': ingredient.carbs * ratio,
         'fat': ingredient.fat * ratio,
         'name': ingredient.name,
+        'ingredient': ingredient,
         'grams': meal_ingredient.grams,
     }
 
@@ -119,7 +121,14 @@ def build_today_slots(meal_slots, assigned_slots, member_count):
         meal = plan_slot.meal if plan_slot else None
         breakdown = meal_breakdown(meal)
         items = [
-            {**item, 'household_grams': item['grams'] * multiplier}
+            {
+                **item,
+                'household_grams': item['grams'] * multiplier,
+                'quantity': format_ingredient_quantity(item['ingredient'], item['grams']),
+                'household_quantity': format_ingredient_quantity(
+                    item['ingredient'], item['grams'] * multiplier
+                ),
+            }
             for item in breakdown['items']
         ]
         plate = breakdown['macros']

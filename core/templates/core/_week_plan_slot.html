@@ -66,7 +66,7 @@
                           data-vegetable-macro="{{ item.vegetable_macro_category }}"
                           {% endif %}>{{ item.vegetable_macro_category|default:item.name }}</span>
                 </span>
-                <span class="shrink-0 tabular-nums opacity-80">{{ item.grams|floatformat:0 }}g</span>
+                <span class="shrink-0 tabular-nums opacity-80">{{ item.quantity }} ×{{ member_count }}</span>
             </li>
             {% endfor %}
         </ul>

@@ -111,9 +111,9 @@
                                 <span class="text-xs tabular-nums text-gray-500">{{ item.kcal|floatformat:0 }} kcal / plate</span>
                             </div>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                {{ item.grams|floatformat:0 }} g per plate
+                                {{ item.quantity }} per plate
                                 {% if member_count > 1 %}
-                                · {{ item.household_grams|floatformat:0 }} g for {{ member_count }}
+                                · {{ item.household_quantity }} for {{ member_count }}
                                 {% endif %}
                             </p>
                         </li>
@@ -135,9 +135,9 @@
                                 {% for item in row.items %}
                                 <tr>
                                     <td class="py-1.5 pr-2 text-gray-800">{{ item.name }}</td>
-                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-700">{{ item.grams|floatformat:0 }} g</td>
+                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-700">{{ item.quantity }}</td>
                                     {% if member_count > 1 %}
-                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-500">{{ item.household_grams|floatformat:0 }} g</td>
+                                    <td class="py-1.5 px-1 text-right tabular-nums text-gray-500">{{ item.household_quantity }}</td>
                                     {% endif %}
                                     <td class="py-1.5 pl-1 text-right tabular-nums text-gray-500">{{ item.kcal|floatformat:0 }}</td>
                                 </tr>

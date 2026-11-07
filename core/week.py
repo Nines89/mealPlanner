@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from random import choice, choices
 from collections import defaultdict
+from decimal import Decimal
 
 from django.db.models import Q
 
@@ -29,6 +30,7 @@ from .planning import (
     scale_day_meals,
     slot_budget,
 )
+from .quantities import format_ingredient_quantity
 from .targets import get_target_by_kind, targets_by_day, targets_for_week_plan
 
 WEEK_DAYS = range(7)
@@ -579,6 +581,9 @@ def _meal_preview_items(meal):
                     'name': row.ingredient.name,
                     'vegetable_macro_category': '',
                     'grams': row.grams,
+                    'quantity': format_ingredient_quantity(
+                        row.ingredient, row.grams, whole_pieces=True
+                    ),
                 }
                 for row in group
             ]
@@ -599,7 +604,14 @@ def _vegetable_preview_items(rows):
         )
         bucket['name'].append(row.ingredient.name)
         bucket['grams'] += row.grams
-    return [{**b, 'name': ', '.join(b['name'])} for b in buckets.values()]
+    return [
+        {
+            **bucket,
+            'name': ', '.join(bucket['name']),
+            'quantity': f"{Decimal(bucket['grams']):.0f} g",
+        }
+        for bucket in buckets.values()
+    ]
 
 
 def _vegetable_macro_category(ingredient):

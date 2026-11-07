@@ -18,6 +18,11 @@ from .models import (
     MealSlotTarget,
     MealSlot,
 )
+from .quantities import format_ingredient_quantity
+from .quantities import (
+    MAX_WHOLE_EGG_GRAMS_PER_PERSON_PER_MEAL,
+    is_whole_egg,
+)
 from .targets import targets_by_day
 
 GRAMS_QUANTIZE = Decimal('10')
@@ -290,9 +295,26 @@ def scale_day_meals(nutrition_target, all_slots, sources, slot_target_cache=None
         [row[3] for row in plates],
     )
     return [
-        (slot, name, genre, items)
+        (slot, name, genre, _cap_eggs_per_portion(items))
         for (slot, name, genre, _), items in zip(plates, fitted)
     ]
+
+
+def _cap_eggs_per_portion(items):
+    """Limit whole eggs in one person's recipe portion to three eggs."""
+    egg_total = sum(
+        (Decimal(grams) for ingredient, grams in items if is_whole_egg(ingredient)),
+        Decimal('0'),
+    )
+    if egg_total <= MAX_WHOLE_EGG_GRAMS_PER_PERSON_PER_MEAL:
+        return items
+    factor = MAX_WHOLE_EGG_GRAMS_PER_PERSON_PER_MEAL / egg_total
+    capped = []
+    for ingredient, grams in items:
+        if is_whole_egg(ingredient):
+            grams = (Decimal(grams) * factor).quantize(Decimal('0.1'), rounding=ROUND_FLOOR)
+        capped.append((ingredient, grams))
+    return capped
 
 
 def _apply_gram_factor(items, factor):
@@ -693,14 +715,16 @@ def shopping_list_for_plan(week_plan, member_count):
             category, (2, 'Grassi e altri')
         )
         row['category_order'] = category_order.get(category, 2)
-        row['quantity'] = _shopping_quantity(row['grams'])
+        row['quantity'] = _shopping_quantity(row['grams'], row['ingredient'])
     rows.sort(key=lambda row: (
         row['section_order'], row['category_order'], row['name'].lower()
     ))
     return rows
 
 
-def _shopping_quantity(grams):
+def _shopping_quantity(grams, ingredient=None):
+    if ingredient is not None:
+        return format_ingredient_quantity(ingredient, grams, whole_pieces=True)
     if grams < Decimal('1000'):
         return f'{grams:.0f} g'
     kilograms = (grams / Decimal('1000')).normalize()

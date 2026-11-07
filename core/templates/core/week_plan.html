@@ -111,13 +111,13 @@
                  role="group"
                  aria-label="Vegetable display mode">
                 <button type="button"
-                        class="rounded-md bg-white px-3 py-1.5 shadow-sm"
-                        data-vegetable-view="macro"
-                        aria-pressed="true">Macro category</button>
-                <button type="button"
                         class="rounded-md px-3 py-1.5"
+                        data-vegetable-view="macro"
+                        aria-pressed="false">Macro category</button>
+                <button type="button"
+                        class="rounded-md bg-white px-3 py-1.5 shadow-sm"
                         data-vegetable-view="recipe"
-                        aria-pressed="false">Recipe vegetable</button>
+                        aria-pressed="true">Recipe vegetable</button>
             </div>
             <div class="mt-3 flex gap-2 lg:hidden">
                 <button type="submit" name="form_id" value="meal_grid"
@@ -176,5 +176,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/week_plan.js' %}?v=swap-mob-1"></script>
+<script src="{% static 'js/week_plan.js' %}?v=recipe-vegetables-default-1"></script>
 {% endblock %}
