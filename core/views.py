@@ -1,13 +1,14 @@
 from datetime import date, timedelta
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from .forms import AddHouseholdMemberForm, FillSlotForm
-from .models import DayKind, Household, MealSlot, WeekDay, WeekPlanSlot
+from .models import DayKind, Household, MealSlot, ShoppingListOrder, WeekDay, WeekPlanSlot
 from .nutrition import build_today_slots, expected_macros_for_day
 from .planning import shopping_list_for_plan
 from .targets import day_kind_map, get_target_by_kind
@@ -24,6 +25,13 @@ from .week import (
     save_genre_grid,
     week_plan_for_monday,
     week_plan_page_context, swap_slots,
+)
+
+SHOPPING_LIST_SECTIONS = (
+    'Carboidrati',
+    'Proteine e latticini',
+    'Grassi e altri',
+    'Vegetali',
 )
 
 
@@ -348,6 +356,11 @@ def shopping_list(request):
     member_count = household.member_count() or 1
     week_plan = week_plan_for_monday(user, monday)
     rows = shopping_list_for_plan(week_plan, member_count) if week_plan else []
+    saved_order = ShoppingListOrder.objects.filter(
+        owner=user, week_start=monday
+    ).values_list('items', flat=True).first()
+    if saved_order:
+        rows = _apply_shopping_list_order(rows, saved_order)
     return render(
         request,
         'core/shopping_list.html',
@@ -360,6 +373,70 @@ def shopping_list(request):
             'rows': rows,
         },
     )
+
+
+@login_required
+@require_POST
+def save_shopping_list_order(request: HttpRequest) -> JsonResponse:
+    try:
+        payload = json.loads(request.body)
+        week_start = date.fromisoformat(payload['week'])
+        items = payload['items']
+    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid shopping list order.'}, status=400)
+    if week_start.weekday() != 0 or not isinstance(items, list):
+        return JsonResponse({'error': 'Invalid shopping list order.'}, status=400)
+
+    week_plan = week_plan_for_monday(request.user, week_start)
+    if week_plan is None:
+        return JsonResponse({'error': 'Week plan not found.'}, status=404)
+    household = Household.ensure_for_user(request.user)
+    current_rows = shopping_list_for_plan(week_plan, household.member_count() or 1)
+    valid_ids = {row['ingredient_id'] for row in current_rows}
+    saved_items = []
+    seen = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        ingredient_id = item.get('id')
+        section = item.get('section')
+        if (
+            not isinstance(ingredient_id, int)
+            or isinstance(ingredient_id, bool)
+            or ingredient_id not in valid_ids
+            or ingredient_id in seen
+            or section not in SHOPPING_LIST_SECTIONS
+        ):
+            continue
+        seen.add(ingredient_id)
+        saved_items.append({'id': ingredient_id, 'section': section})
+
+    ShoppingListOrder.objects.update_or_create(
+        owner=request.user,
+        week_start=week_start,
+        defaults={'items': saved_items},
+    )
+    return JsonResponse({'saved': True})
+
+
+def _apply_shopping_list_order(rows: list[dict], saved_items: list[dict]) -> list[dict]:
+    by_id = {row['ingredient_id']: row for row in rows}
+    grouped = {section: [] for section in SHOPPING_LIST_SECTIONS}
+    seen = set()
+    for item in saved_items:
+        if not isinstance(item, dict):
+            continue
+        row = by_id.get(item.get('id'))
+        section = item.get('section')
+        if row is None or section not in grouped or row['ingredient_id'] in seen:
+            continue
+        row['section'] = section
+        grouped[section].append(row)
+        seen.add(row['ingredient_id'])
+    for row in rows:
+        if row['ingredient_id'] not in seen:
+            grouped[row['section']].append(row)
+    return [row for section in SHOPPING_LIST_SECTIONS for row in grouped[section]]
 
 def _posted_ref(post_data, day_key, slot_key):
     try:

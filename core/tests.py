@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -18,6 +19,7 @@ from .models import (
     MealIngredient,
     MealSlot,
     NutritionTarget,
+    ShoppingListOrder,
     WeekPlan,
     WeekPlanDayKind,
     WeekPlanSlot,
@@ -855,6 +857,25 @@ class NutritionAndShoppingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Chicken')
         self.assertContains(response, '200 g')
+
+    def test_shopping_list_order_is_saved_and_restored(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('core:shopping_list_order'),
+            data=json.dumps({
+                'week': self.week_plan.week_start.isoformat(),
+                'items': [{'id': self.chicken.id, 'section': 'Carboidrati'}],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        saved = ShoppingListOrder.objects.get(owner=self.user, week_start=self.week_plan.week_start)
+        self.assertEqual(saved.items[0]['section'], 'Carboidrati')
+
+        page = self.client.get(reverse('core:shopping_list'))
+        self.assertEqual(page.context['rows'][0]['section'], 'Carboidrati')
+        self.assertContains(page, 'Carboidrati')
 
     def test_shopping_list_can_show_a_previous_week(self):
         previous_monday = monday_of_week() - timedelta(days=7)

@@ -6,56 +6,31 @@
 
   const body = list.querySelector('tbody');
   const status = document.querySelector('[data-shopping-status]');
-  const storageKey = `shopping-list-order:${list.dataset.owner}:${list.dataset.week}`;
+  const csrfInput = list.querySelector('[data-order-csrf] [name=csrfmiddlewaretoken]');
   let draggedRow = null;
   let draggedHandle = null;
   let draggedPointerId = null;
 
-  function itemRows(section) {
-    return Array.from(body.querySelectorAll('[data-shopping-row]'))
-      .filter((row) => row.dataset.section === section);
-  }
-
   function saveOrder() {
-    const sections = {};
-    body.querySelectorAll('tr[data-section-heading]').forEach((heading) => {
-      const section = heading.dataset.section;
-      sections[section] = itemRows(section).map((row) => row.dataset.ingredient);
-    });
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ sections }));
-    } catch (_error) {
-      // Keep reordering available if browser storage is disabled or full.
-    }
-  }
-
-  function restoreOrder() {
-    let saved;
-    try {
-      saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    } catch (_error) {
-      return;
-    }
-    if (!saved || !saved.sections || typeof saved.sections !== 'object') return;
-
-    const rowsById = new Map(
-      Array.from(body.querySelectorAll('[data-shopping-row]'))
-        .map((row) => [row.dataset.ingredient, row])
-    );
-    body.querySelectorAll('tr[data-section-heading]').forEach((heading) => {
-      const section = heading.dataset.section;
-      const requestedIds = saved.sections[section] || [];
-      const rows = requestedIds.map((id) => rowsById.get(String(id))).filter(Boolean);
-      const included = new Set(rows);
-      itemRows(section).forEach((row) => {
-        if (!included.has(row)) rows.push(row);
-      });
-      let anchor = heading;
-      rows.forEach((row) => {
-        row.dataset.section = section;
-        body.insertBefore(row, anchor.nextSibling);
-        anchor = row;
-      });
+    const items = Array.from(body.querySelectorAll('[data-shopping-row]')).map((row) => ({
+      id: Number(row.dataset.ingredient),
+      section: row.dataset.section,
+    }));
+    if (status) status.textContent = 'Salvataggio ordine…';
+    fetch(list.dataset.saveUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfInput ? csrfInput.value : '',
+      },
+      body: JSON.stringify({ week: list.dataset.week, items }),
+    }).then((response) => {
+      if (!response.ok) throw new Error('Order save failed');
+      if (status) status.textContent = 'Ordine salvato.';
+    }).catch(() => {
+      if (status) status.textContent = 'Impossibile salvare l’ordine.';
     });
   }
 
@@ -65,7 +40,6 @@
     if (reference === row || (!after && row.nextElementSibling === target)) return false;
     row.dataset.section = target.dataset.section;
     body.insertBefore(row, reference);
-    saveOrder();
     return true;
   }
 
@@ -73,7 +47,6 @@
     if (!row || !heading || !heading.querySelector('th[colspan]') || row === heading.nextElementSibling) return false;
     row.dataset.section = heading.dataset.section;
     body.insertBefore(row, heading.nextElementSibling);
-    saveOrder();
     return true;
   }
 
@@ -101,8 +74,6 @@
       row.dataset.section = currentSection;
     }
   });
-
-  restoreOrder();
 
   body.addEventListener('pointerdown', (event) => {
     const handle = event.target.closest('[data-drag-handle]');
@@ -140,6 +111,10 @@
 
   body.addEventListener('pointerup', finishDrag);
   body.addEventListener('pointercancel', finishDrag);
+  window.addEventListener('pagehide', saveOrder);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveOrder();
+  });
 
   body.addEventListener('keydown', (event) => {
     const handle = event.target.closest('[data-drag-handle]');
@@ -151,6 +126,7 @@
     if (!target) return;
     event.preventDefault();
     moveRelative(row, target, event.key === 'ArrowDown');
+    saveOrder();
     handle.focus();
     if (status) status.textContent = `${row.querySelector('[data-drag-handle]').getAttribute('aria-label').replace('Sposta ', '')} riordinato.`;
   });

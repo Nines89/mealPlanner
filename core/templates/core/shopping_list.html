@@ -25,7 +25,8 @@
 {% elif not rows %}
 <p class="text-sm text-gray-600">No meals assigned this week. Choose categories and click Build on the week plan.</p>
 {% else %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-shopping-list data-owner="{{ request.user.id }}" data-week="{{ week_start|date:'Y-m-d' }}">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-shopping-list data-week="{{ week_start|date:'Y-m-d' }}" data-save-url="{% url 'core:shopping_list_order' %}">
+    <form class="hidden" data-order-csrf>{% csrf_token %}</form>
     <table class="min-w-full text-sm text-left">
         <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
@@ -57,5 +58,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/shopping_list.js' %}?v=shopping-list-dnd-2" defer></script>
+<script src="{% static 'js/shopping_list.js' %}?v=shopping-list-server-order-2" defer></script>
 {% endblock %}

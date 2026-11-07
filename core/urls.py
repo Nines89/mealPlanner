@@ -13,6 +13,7 @@ urlpatterns = [
     ),
     path('famiglia/', views.household_manage, name='household'),
     path('lista-spesa/', views.shopping_list, name='shopping_list'),
+    path('lista-spesa/ordine/', views.save_shopping_list_order, name='shopping_list_order'),
     path('target-nuovo/', views.nutrition_target_edit, name='nutrition_target_edit'),
     path('ricette/', views_recipes.recipe_list, name='recipes'),
     path('ricette/sync/', views_notion.recipes_sync, name='recipes_sync'),

@@ -575,3 +575,21 @@ class WeekPlanSlot(models.Model):
 
     def __str__(self):
         return f"{self.week_plan} — {self.get_day_display()} — {self.meal_slot.name}"
+
+
+class ShoppingListOrder(models.Model):
+    """A user's custom ingredient order and section placement for one week."""
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='shopping_list_orders'
+    )
+    week_start = models.DateField()
+    items = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('owner', 'week_start'),
+                name='core_shoppinglistorder_owner_week_uniq',
+            ),
+        ]
