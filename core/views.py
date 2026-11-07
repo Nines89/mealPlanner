@@ -1,14 +1,25 @@
 from datetime import date, timedelta
 import json
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .forms import AddHouseholdMemberForm, FillSlotForm
-from .models import DayKind, Household, MealSlot, ShoppingListOrder, WeekDay, WeekPlanSlot
+from .models import (
+    DayKind,
+    Household,
+    Ingredient,
+    MealSlot,
+    ShoppingListHiddenIngredient,
+    ShoppingListManualItem,
+    ShoppingListOrder,
+    WeekDay,
+    WeekPlanSlot,
+)
 from .nutrition import build_today_slots, expected_macros_for_day
 from .planning import shopping_list_for_plan
 from .targets import day_kind_map, get_target_by_kind
@@ -33,6 +44,14 @@ SHOPPING_LIST_SECTIONS = (
     'Grassi e altri',
     'Vegetali',
 )
+SHOPPING_LIST_UNIT_LABELS = {
+    'g': ('g', 'g'),
+    'kg': ('kg', 'kg'),
+    'ml': ('ml', 'ml'),
+    'l': ('l', 'l'),
+    'pz': ('pezzo', 'pezzi'),
+    'confezione': ('confezione', 'confezioni'),
+}
 
 
 def _household_context(user):
@@ -355,7 +374,7 @@ def shopping_list(request):
     household = Household.ensure_for_user(user)
     member_count = household.member_count() or 1
     week_plan = week_plan_for_monday(user, monday)
-    rows = shopping_list_for_plan(week_plan, member_count) if week_plan else []
+    rows = _shopping_list_rows(user, monday, week_plan, member_count)
     saved_order = ShoppingListOrder.objects.filter(
         owner=user, week_start=monday
     ).values_list('items', flat=True).first()
@@ -388,28 +407,27 @@ def save_shopping_list_order(request: HttpRequest) -> JsonResponse:
         return JsonResponse({'error': 'Invalid shopping list order.'}, status=400)
 
     week_plan = week_plan_for_monday(request.user, week_start)
-    if week_plan is None:
-        return JsonResponse({'error': 'Week plan not found.'}, status=404)
     household = Household.ensure_for_user(request.user)
-    current_rows = shopping_list_for_plan(week_plan, household.member_count() or 1)
-    valid_ids = {row['ingredient_id'] for row in current_rows}
+    current_rows = _shopping_list_rows(
+        request.user, week_start, week_plan, household.member_count() or 1
+    )
+    valid_ids = {row['order_id'] for row in current_rows}
     saved_items = []
     seen = set()
     for item in items:
         if not isinstance(item, dict):
             continue
-        ingredient_id = item.get('id')
+        item_id = item.get('id')
         section = item.get('section')
         if (
-            not isinstance(ingredient_id, int)
-            or isinstance(ingredient_id, bool)
-            or ingredient_id not in valid_ids
-            or ingredient_id in seen
+            not isinstance(item_id, str)
+            or item_id not in valid_ids
+            or item_id in seen
             or section not in SHOPPING_LIST_SECTIONS
         ):
             continue
-        seen.add(ingredient_id)
-        saved_items.append({'id': ingredient_id, 'section': section})
+        seen.add(item_id)
+        saved_items.append({'id': item_id, 'section': section})
 
     ShoppingListOrder.objects.update_or_create(
         owner=request.user,
@@ -420,23 +438,129 @@ def save_shopping_list_order(request: HttpRequest) -> JsonResponse:
 
 
 def _apply_shopping_list_order(rows: list[dict], saved_items: list[dict]) -> list[dict]:
-    by_id = {row['ingredient_id']: row for row in rows}
+    by_id = {row['order_id']: row for row in rows}
     grouped = {section: [] for section in SHOPPING_LIST_SECTIONS}
     seen = set()
     for item in saved_items:
         if not isinstance(item, dict):
             continue
-        row = by_id.get(item.get('id'))
+        row = by_id.get(str(item.get('id')))
         section = item.get('section')
-        if row is None or section not in grouped or row['ingredient_id'] in seen:
+        if row is None or section not in grouped or row['order_id'] in seen:
             continue
         row['section'] = section
         grouped[section].append(row)
-        seen.add(row['ingredient_id'])
+        seen.add(row['order_id'])
     for row in rows:
-        if row['ingredient_id'] not in seen:
+        if row['order_id'] not in seen:
             grouped[row['section']].append(row)
     return [row for section in SHOPPING_LIST_SECTIONS for row in grouped[section]]
+
+
+def _shopping_list_rows(user, monday, week_plan, member_count):
+    rows = shopping_list_for_plan(week_plan, member_count) if week_plan else []
+    hidden_ids = set(ShoppingListHiddenIngredient.objects.filter(
+        owner=user, week_start=monday
+    ).values_list('ingredient_id', flat=True))
+    rows = [row for row in rows if row['ingredient_id'] not in hidden_ids]
+    manual_items = ShoppingListManualItem.objects.filter(
+        owner=user, week_start=monday
+    )
+    for item in manual_items:
+        rows.append({
+            'order_id': f'manual-{item.id}',
+            'manual_id': item.id,
+            'name': item.name,
+            'quantity': item.quantity or '—',
+            'section': item.section,
+            'manual': True,
+        })
+    return rows
+
+
+@login_required
+@require_POST
+def add_shopping_list_item(request: HttpRequest) -> HttpResponseRedirect:
+    name = request.POST.get('name', '').strip()
+    raw_quantity = request.POST.get('quantity_value', '').strip()
+    unit = request.POST.get('quantity_unit', '')
+    section = request.POST.get('section', '')
+    try:
+        week_start = date.fromisoformat(request.POST.get('week', ''))
+    except ValueError:
+        raise Http404('Invalid week.')
+    if week_start.weekday() != 0:
+        raise Http404('Week must start on a Monday.')
+    quantity = ''
+    if raw_quantity:
+        try:
+            amount = Decimal(raw_quantity)
+        except InvalidOperation:
+            amount = Decimal('0')
+        if (
+            not amount.is_finite()
+            or amount <= 0
+            or amount > Decimal('99999999.99')
+            or unit not in SHOPPING_LIST_UNIT_LABELS
+        ):
+            messages.error(request, 'Inserisci una quantità positiva e un’unità valida.')
+            return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
+        amount_text = format(amount.normalize(), 'f')
+        if '.' in amount_text:
+            amount_text = amount_text.rstrip('0').rstrip('.')
+        unit_label = SHOPPING_LIST_UNIT_LABELS[unit][amount != Decimal('1')]
+        quantity = f'{amount_text.replace(".", ",")} {unit_label}'
+    if not name or len(name) > 100 or section not in SHOPPING_LIST_SECTIONS:
+        messages.error(request, 'Inserisci un nome valido, una quantità breve e una sezione.')
+        return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
+    ShoppingListManualItem.objects.create(
+        owner=request.user,
+        week_start=week_start,
+        name=name,
+        quantity=quantity,
+        section=section,
+    )
+    return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
+
+
+@login_required
+@require_POST
+def remove_shopping_list_item(
+    request: HttpRequest, item_key: str
+) -> HttpResponseRedirect:
+    try:
+        week_start = date.fromisoformat(request.POST.get('week', ''))
+    except ValueError:
+        raise Http404('Invalid week.')
+    if week_start.weekday() != 0:
+        raise Http404('Week must start on a Monday.')
+    if item_key.startswith('manual-'):
+        try:
+            manual_id = int(item_key.removeprefix('manual-'))
+        except ValueError:
+            raise Http404('Invalid shopping list item.')
+        ShoppingListManualItem.objects.filter(
+            id=manual_id, owner=request.user, week_start=week_start
+        ).delete()
+    else:
+        try:
+            ingredient_id = int(item_key)
+        except ValueError:
+            raise Http404('Invalid shopping list item.')
+        week_plan = week_plan_for_monday(request.user, week_start)
+        if week_plan is not None:
+            household = Household.ensure_for_user(request.user)
+            valid_ids = {
+                row['ingredient_id']
+                for row in shopping_list_for_plan(week_plan, household.member_count() or 1)
+            }
+            if ingredient_id in valid_ids and Ingredient.objects.filter(pk=ingredient_id).exists():
+                ShoppingListHiddenIngredient.objects.get_or_create(
+                    owner=request.user,
+                    week_start=week_start,
+                    ingredient_id=ingredient_id,
+                )
+    return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
 
 def _posted_ref(post_data, day_key, slot_key):
     try:

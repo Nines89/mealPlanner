@@ -635,6 +635,7 @@ def shopping_list_for_plan(week_plan, member_count):
     rows = [
         {
             'ingredient_id': ingredient_id,
+            'order_id': str(ingredient_id),
             'ingredient': ingredients[ingredient_id],
             'name': ingredients[ingredient_id].name,
             'grams': quantize_grams(grams),

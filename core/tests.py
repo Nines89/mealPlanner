@@ -19,6 +19,8 @@ from .models import (
     MealIngredient,
     MealSlot,
     NutritionTarget,
+    ShoppingListHiddenIngredient,
+    ShoppingListManualItem,
     ShoppingListOrder,
     WeekPlan,
     WeekPlanDayKind,
@@ -849,14 +851,14 @@ class NutritionAndShoppingTests(TestCase):
         rows = shopping_list_for_plan(self.week_plan, member_count=2)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['name'], 'Chicken')
-        self.assertEqual(rows[0]['grams'], Decimal('200.0'))
+        self.assertEqual(rows[0]['grams'], Decimal('380'))
 
     def test_shopping_list_page(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse('core:shopping_list'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Chicken')
-        self.assertContains(response, '200 g')
+        self.assertContains(response, '380 g')
 
     def test_shopping_list_order_is_saved_and_restored(self):
         self.client.force_login(self.user)
@@ -864,7 +866,7 @@ class NutritionAndShoppingTests(TestCase):
             reverse('core:shopping_list_order'),
             data=json.dumps({
                 'week': self.week_plan.week_start.isoformat(),
-                'items': [{'id': self.chicken.id, 'section': 'Carboidrati'}],
+                'items': [{'id': str(self.chicken.id), 'section': 'Carboidrati'}],
             }),
             content_type='application/json',
         )
@@ -876,6 +878,65 @@ class NutritionAndShoppingTests(TestCase):
         page = self.client.get(reverse('core:shopping_list'))
         self.assertEqual(page.context['rows'][0]['section'], 'Carboidrati')
         self.assertContains(page, 'Carboidrati')
+
+    def test_manual_shopping_item_can_be_added_and_removed(self):
+        self.client.force_login(self.user)
+        week = self.week_plan.week_start.isoformat()
+        response = self.client.post(
+            reverse('core:shopping_list_add_item'),
+            {
+                'week': week,
+                'name': 'Caffè',
+                'quantity_value': '1',
+                'quantity_unit': 'confezione',
+                'section': 'Grassi e altri',
+            },
+        )
+        self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
+        item = ShoppingListManualItem.objects.get(owner=self.user, week_start=self.week_plan.week_start)
+
+        page = self.client.get(reverse('core:shopping_list'))
+        self.assertContains(page, 'Caffè')
+        self.assertContains(page, '1 confezione')
+        self.assertEqual(page.context['rows'][0]['name'], 'Chicken')
+        self.assertTrue(any(row.get('manual_id') == item.id for row in page.context['rows']))
+
+        response = self.client.post(
+            reverse('core:shopping_list_order'),
+            data=json.dumps({
+                'week': week,
+                'items': [{'id': f'manual-{item.id}', 'section': 'Carboidrati'}],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        page = self.client.get(reverse('core:shopping_list'))
+        manual_row = next(row for row in page.context['rows'] if row.get('manual_id') == item.id)
+        self.assertEqual(manual_row['section'], 'Carboidrati')
+
+        response = self.client.post(
+            reverse('core:shopping_list_remove_item', args=[f'manual-{item.id}']),
+            {'week': week},
+        )
+        self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
+        self.assertFalse(ShoppingListManualItem.objects.filter(pk=item.pk).exists())
+
+    def test_generated_shopping_item_can_be_removed_for_the_week(self):
+        self.client.force_login(self.user)
+        week = self.week_plan.week_start.isoformat()
+        response = self.client.post(
+            reverse('core:shopping_list_remove_item', args=[str(self.chicken.id)]),
+            {'week': week},
+        )
+
+        self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
+        self.assertTrue(ShoppingListHiddenIngredient.objects.filter(
+            owner=self.user,
+            week_start=self.week_plan.week_start,
+            ingredient=self.chicken,
+        ).exists())
+        page = self.client.get(reverse('core:shopping_list'))
+        self.assertNotContains(page, 'Chicken')
 
     def test_shopping_list_can_show_a_previous_week(self):
         previous_monday = monday_of_week() - timedelta(days=7)

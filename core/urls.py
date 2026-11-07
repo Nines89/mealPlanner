@@ -14,6 +14,12 @@ urlpatterns = [
     path('famiglia/', views.household_manage, name='household'),
     path('lista-spesa/', views.shopping_list, name='shopping_list'),
     path('lista-spesa/ordine/', views.save_shopping_list_order, name='shopping_list_order'),
+    path('lista-spesa/aggiungi/', views.add_shopping_list_item, name='shopping_list_add_item'),
+    path(
+        'lista-spesa/manuale/<str:item_key>/rimuovi/',
+        views.remove_shopping_list_item,
+        name='shopping_list_remove_item',
+    ),
     path('target-nuovo/', views.nutrition_target_edit, name='nutrition_target_edit'),
     path('ricette/', views_recipes.recipe_list, name='recipes'),
     path('ricette/sync/', views_notion.recipes_sync, name='recipes_sync'),

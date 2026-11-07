@@ -13,7 +13,7 @@
 
   function saveOrder() {
     const items = Array.from(body.querySelectorAll('[data-shopping-row]')).map((row) => ({
-      id: Number(row.dataset.ingredient),
+      id: row.dataset.ingredient,
       section: row.dataset.section,
     }));
     if (status) status.textContent = 'Salvataggio ordine…';

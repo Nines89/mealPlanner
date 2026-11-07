@@ -593,3 +593,35 @@ class ShoppingListOrder(models.Model):
                 name='core_shoppinglistorder_owner_week_uniq',
             ),
         ]
+
+
+class ShoppingListManualItem(models.Model):
+    """A user-entered shopping item that is independent of planned meals."""
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='shopping_list_manual_items'
+    )
+    week_start = models.DateField()
+    name = models.CharField(max_length=100)
+    quantity = models.CharField(max_length=40, blank=True)
+    section = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class ShoppingListHiddenIngredient(models.Model):
+    """A generated ingredient intentionally hidden from one user's weekly list."""
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='shopping_list_hidden_ingredients'
+    )
+    week_start = models.DateField()
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('owner', 'week_start', 'ingredient'),
+                name='core_shoppinglisthidden_owner_week_ingredient_uniq',
+            ),
+        ]
