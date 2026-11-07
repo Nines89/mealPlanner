@@ -116,6 +116,27 @@ class IngredientQuantityDisplayTests(TestCase):
 
         self.assertEqual(preview[0]['quantity'], '2 uova')
 
+    def test_week_plan_preview_keeps_each_vegetable_and_its_weight_separate(self):
+        zucchini = Ingredient.objects.create(
+            name='Zucchine', category=IngredientCategory.VEGETABLE,
+            vegetable_subcategory='fruit', kcal=17, protein=1.2, carbs=3.1, fat=0.3,
+        )
+        pepper = Ingredient.objects.create(
+            name='Peperone', category=IngredientCategory.VEGETABLE,
+            vegetable_subcategory='fruit', kcal=31, protein=1, carbs=6, fat=0.3,
+        )
+        meal = Meal.objects.create(name='Verdure miste', genre=MealGenre.UOVA)
+        MealIngredient.objects.create(meal=meal, ingredient=zucchini, grams=Decimal('90'))
+        MealIngredient.objects.create(meal=meal, ingredient=pepper, grams=Decimal('70'))
+
+        preview = _meal_preview_items(meal)
+        vegetables = [item for item in preview if item['vegetable_macro_category']]
+
+        self.assertEqual(
+            [(item['name'], item['quantity']) for item in vegetables],
+            [('Zucchine', '90 g'), ('Peperone', '70 g')],
+        )
+
 
 class WeekPlanMealGridTests(TestCase):
     @classmethod
@@ -220,6 +241,51 @@ class WeekPlanMealGridTests(TestCase):
         household.add_named_member('Second person')
         two_person_page = self.client.get(reverse('core:week_plan'))
         self.assertContains(two_person_page, '×2')
+
+    def test_replacing_week_plan_vegetable_does_not_change_catalog_recipe(self):
+        week_start = monday_of_week()
+        current_plan = WeekPlan.objects.create(owner=self.user, week_start=week_start)
+        other_plan = WeekPlan.objects.create(
+            owner=self.user, week_start=week_start + timedelta(days=7)
+        )
+        for plan in (current_plan, other_plan):
+            WeekPlanSlot.objects.create(
+                week_plan=plan, day=0, meal_slot=self.lunch_slot,
+                genre=MealGenre.ZUPPE, meal=self.soup,
+            )
+        carrot = Ingredient.objects.create(
+            name='Carrot', category=IngredientCategory.VEGETABLE,
+            vegetable_subcategory='root', kcal=41, protein=0.9, carbs=9.6, fat=0.2,
+        )
+        url = f"{reverse('core:week_plan')}?week={week_start.isoformat()}"
+
+        response = self.client.post(url, {
+            'form_id': 'replace_vegetable',
+            'vegetable_day': '0',
+            'vegetable_slot_id': str(self.lunch_slot.id),
+            'vegetable_old_id': str(self.broccoli.id),
+            'vegetable_new_id': str(carrot.id),
+        })
+
+        self.assertRedirects(response, url)
+        current_slot = WeekPlanSlot.objects.get(
+            week_plan=current_plan, day=0, meal_slot=self.lunch_slot
+        )
+        other_slot = WeekPlanSlot.objects.get(
+            week_plan=other_plan, day=0, meal_slot=self.lunch_slot
+        )
+        self.assertNotEqual(current_slot.meal_id, self.soup.id)
+        self.assertEqual(
+            set(current_slot.meal.meal_ingredients.values_list('ingredient__name', flat=True)),
+            {'Chicken', 'Rice', 'Carrot', 'Oil'},
+        )
+        self.assertTrue(
+            current_slot.meal.meal_ingredients.filter(ingredient=carrot).exists()
+        )
+        self.assertEqual(other_slot.meal_id, self.soup.id)
+        self.assertTrue(
+            self.soup.meal_ingredients.filter(ingredient=self.broccoli).exists()
+        )
 
     def test_user_can_update_and_clear_categories(self):
         week_plan = WeekPlan.objects.create(owner=self.user, week_start=monday_of_week())
@@ -374,6 +440,7 @@ class WeekPlanMealGridTests(TestCase):
         self.assertContains(response, 'Recipe vegetable')
         self.assertContains(response, 'data-vegetable-name="Broccoli"')
         self.assertContains(response, 'data-vegetable-macro="Vegetale - Fiore"')
+        self.assertContains(response, 'data-vegetable-editor-open')
 
     def test_user_can_open_and_save_the_next_week(self):
         next_monday = monday_of_week() + timedelta(days=7)

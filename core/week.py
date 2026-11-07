@@ -12,6 +12,7 @@ from django.db.models import Q
 from .models import (
     DayKind,
     Household,
+    Ingredient,
     Meal,
     MealGenre,
     MealIngredient,
@@ -554,9 +555,80 @@ def _grid_cell(day, plan_slot):
         'genre_label': _genre_display(genre),
         'meal': meal,
         'preview': _meal_preview_items(meal),
+        'vegetables': _meal_vegetables(meal),
         'kcal': _meal_kcal(meal),
         'skipped': bool(plan_slot and plan_slot.skipped),
     }
+
+
+def _meal_vegetables(meal):
+    if meal is None:
+        return []
+    return [
+        {'id': row.ingredient_id, 'name': row.ingredient.name}
+        for row in meal.meal_ingredients.all()
+        if row.ingredient.category == IngredientCategory.VEGETABLE
+    ]
+
+
+def replace_week_plan_vegetable(week_plan, day, meal_slot_id, old_ingredient_id, new_ingredient_id):
+    """Replace one vegetable on this plan slot, copying catalog meals first."""
+    if day not in WEEK_DAYS or old_ingredient_id == new_ingredient_id:
+        return False
+    old_ingredient = Ingredient.objects.filter(
+        pk=old_ingredient_id, category=IngredientCategory.VEGETABLE
+    ).first()
+    new_ingredient = Ingredient.objects.filter(
+        pk=new_ingredient_id, category=IngredientCategory.VEGETABLE
+    ).first()
+    if old_ingredient is None or new_ingredient is None:
+        return False
+
+    with transaction.atomic():
+        plan_slot = (
+            WeekPlanSlot.objects.select_for_update()
+            .filter(
+                week_plan=week_plan,
+                day=day,
+                meal_slot_id=meal_slot_id,
+                meal_slot__user=week_plan.owner,
+                meal__isnull=False,
+            )
+            .select_related('meal', 'meal_slot')
+            .first()
+        )
+        if plan_slot is None:
+            return False
+
+        meal = plan_slot.meal
+        old_row = meal.meal_ingredients.filter(
+            ingredient=old_ingredient,
+            ingredient__category=IngredientCategory.VEGETABLE,
+        ).first()
+        if old_row is None:
+            return False
+
+        if not _is_owned_generated(meal, week_plan.owner_id) or meal.slots.exclude(
+            pk=plan_slot.pk
+        ).exists():
+            source_items = _ingredients_of(meal)
+            copied = _create_named_meal(
+                week_plan, meal.name, plan_slot.genre or meal.genre, source_items
+            )
+            replace_slot_meal(week_plan, day, plan_slot.meal_slot, copied)
+            plan_slot.refresh_from_db()
+            meal = plan_slot.meal
+            old_row = meal.meal_ingredients.get(ingredient=old_ingredient)
+
+        replacement_row = meal.meal_ingredients.filter(ingredient=new_ingredient).first()
+        if replacement_row:
+            replacement_row.grams += old_row.grams
+            replacement_row.save(update_fields=['grams'])
+            old_row.delete()
+        else:
+            old_row.ingredient = new_ingredient
+            old_row.save(update_fields=['ingredient'])
+    return True
 
 
 def _meal_preview_items(meal):
@@ -594,23 +666,15 @@ def _meal_preview_items(meal):
 
 
 def _vegetable_preview_items(rows):
-    """One entry per vegetable macro category (names joined, grams summed)."""
-    buckets = {}
-    for row in rows:
-        key = _vegetable_macro_category(row.ingredient)
-        bucket = buckets.setdefault(
-            key,
-            {'name': [], 'vegetable_macro_category': key, 'grams': 0},
-        )
-        bucket['name'].append(row.ingredient.name)
-        bucket['grams'] += row.grams
+    """Keep each vegetable and its own quantity as a separate preview row."""
     return [
         {
-            **bucket,
-            'name': ', '.join(bucket['name']),
-            'quantity': f"{Decimal(bucket['grams']):.0f} g",
+            'name': row.ingredient.name,
+            'vegetable_macro_category': _vegetable_macro_category(row.ingredient),
+            'grams': row.grams,
+            'quantity': f'{Decimal(row.grams):.0f} g',
         }
-        for bucket in buckets.values()
+        for row in rows
     ]
 
 
@@ -702,6 +766,9 @@ def week_plan_page_context(user, week_plan, monday):
         'is_current_week': monday == monday_of_week(),
         'meal_slots': meal_slots,
         'meal_genres': MealGenre.choices,
+        'vegetable_options': Ingredient.objects.filter(
+            category=IngredientCategory.VEGETABLE
+        ).order_by('name'),
         'grid_rows': grid_rows,
         'board_days': board_days_for(day_columns, grid_rows),
         'week_day_headers': [(day, WeekDay(day).label) for day in WEEK_DAYS],

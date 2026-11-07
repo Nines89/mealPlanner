@@ -34,6 +34,7 @@ from .week import (
     monday_of_week,
     rebuild_slot_meal,
     rescale_assigned_portions,
+    replace_week_plan_vegetable,
     save_day_kinds,
     save_genre_grid,
     week_plan_for_monday,
@@ -163,6 +164,7 @@ def _handle_week_plan_post(request, week_plan):
         'meal_grid': _save_week_genre_grid,
         'build': _build_week_meals,
         'clear': _clear_week_meals,
+        'replace_vegetable': _replace_week_vegetable,
         'rebuild_slot': _rebuild_week_slot,
         'swap_slots': _swap_week_slots,
     }
@@ -235,6 +237,25 @@ def _build_week_meals(request, week_plan):
 def _clear_week_meals(request, week_plan):
     removed = clear_week_plan_meals(week_plan)
     messages.success(request, f'Cleared {removed} recipes from this week.')
+    return _week_plan_redirect(request)
+
+
+def _replace_week_vegetable(request, week_plan):
+    try:
+        day = int(request.POST.get('vegetable_day', ''))
+        meal_slot_id = int(request.POST.get('vegetable_slot_id', ''))
+        old_ingredient_id = int(request.POST.get('vegetable_old_id', ''))
+        new_ingredient_id = int(request.POST.get('vegetable_new_id', ''))
+    except (TypeError, ValueError):
+        messages.error(request, 'Could not update the recipe vegetables.')
+        return _week_plan_redirect(request)
+
+    if replace_week_plan_vegetable(
+        week_plan, day, meal_slot_id, old_ingredient_id, new_ingredient_id
+    ):
+        messages.success(request, 'Recipe vegetable updated for this week.')
+    else:
+        messages.error(request, 'That vegetable could not be changed for this recipe.')
     return _week_plan_redirect(request)
 
 

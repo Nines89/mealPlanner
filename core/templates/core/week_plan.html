@@ -82,6 +82,10 @@
         <input type="hidden" name="form_id" value="" data-week-form-id>
         <input type="hidden" name="rebuild_day" value="" data-rebuild-day>
         <input type="hidden" name="rebuild_slot_id" value="" data-rebuild-slot>
+        <input type="hidden" name="vegetable_day" value="" data-vegetable-day>
+        <input type="hidden" name="vegetable_slot_id" value="" data-vegetable-slot>
+        <input type="hidden" name="vegetable_old_id" value="" data-vegetable-old-id>
+        <input type="hidden" name="vegetable_new_id" value="" data-vegetable-new-id>
         <input type="hidden" name="swap_from_day" value="" data-swap-from-day>
         <input type="hidden" name="swap_from_slot_id" value="" data-swap-from-slot>
         <input type="hidden" name="swap_to_day" value="" data-swap-to-day>
@@ -176,5 +180,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/week_plan.js' %}?v=recipe-vegetables-default-1"></script>
+<script src="{% static 'js/week_plan.js' %}?v=week-vegetable-editor-1"></script>
 {% endblock %}

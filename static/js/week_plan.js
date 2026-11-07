@@ -46,6 +46,15 @@
     root.querySelectorAll('[data-clear-cell]').forEach(function (button) {
       button.addEventListener('click', onClearClick);
     });
+    root.querySelectorAll('[data-vegetable-editor-open]').forEach(function (button) {
+      button.addEventListener('click', onVegetableEditorOpen);
+    });
+    root.querySelectorAll('[data-vegetable-editor-cancel]').forEach(function (button) {
+      button.addEventListener('click', onVegetableEditorCancel);
+    });
+    root.querySelectorAll('[data-vegetable-editor-save]').forEach(function (button) {
+      button.addEventListener('click', onVegetableEditorSave);
+    });
     root.querySelectorAll('[data-kind-toggle]').forEach(function (button) {
       button.addEventListener('click', onKindToggle);
     });
@@ -124,7 +133,7 @@
   }
 
   function onCellPointerDown(event) {
-    if (!isMousePointer(event) || event.target.closest('[data-clear-cell], [data-change-category]')) {
+    if (!isMousePointer(event) || event.target.closest('[data-clear-cell], [data-change-category], [data-vegetable-controls]')) {
       return;
     }
     const cell = event.currentTarget;
@@ -144,7 +153,7 @@
     if (ignoreClick) {
       return;
     }
-    if (event.target.closest('[data-clear-cell], [data-change-category], [data-swap-cell]')) {
+    if (event.target.closest('[data-clear-cell], [data-change-category], [data-swap-cell], [data-vegetable-controls]')) {
       return;
     }
     const cell = event.currentTarget;
@@ -188,6 +197,47 @@
     }
     assignCell(cell, '');
     announce('Cleared ' + cellTitle(cell));
+  }
+
+  function onVegetableEditorOpen(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const controls = event.currentTarget.closest('[data-vegetable-controls]');
+    const editor = controls && controls.querySelector('[data-vegetable-editor]');
+    if (editor) {
+      editor.hidden = false;
+      event.currentTarget.hidden = true;
+    }
+  }
+
+  function onVegetableEditorCancel(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const controls = event.currentTarget.closest('[data-vegetable-controls]');
+    const editor = controls && controls.querySelector('[data-vegetable-editor]');
+    const opener = controls && controls.querySelector('[data-vegetable-editor-open]');
+    if (editor) editor.hidden = true;
+    if (opener) opener.hidden = false;
+  }
+
+  function onVegetableEditorSave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const cell = event.currentTarget.closest('[data-drop-cell]');
+    const controls = event.currentTarget.closest('[data-vegetable-controls]');
+    if (!cell || !controls) return;
+    const oldSelect = controls.querySelector('[data-vegetable-old]');
+    const newSelect = controls.querySelector('[data-vegetable-new]');
+    const set = function (selector, value) {
+      const input = root.querySelector(selector);
+      if (input) input.value = value;
+    };
+    if (!oldSelect || !newSelect || !oldSelect.value || !newSelect.value) return;
+    set('[data-vegetable-day]', cell.dataset.day || '');
+    set('[data-vegetable-slot]', cell.dataset.slotId || '');
+    set('[data-vegetable-old-id]', oldSelect.value);
+    set('[data-vegetable-new-id]', newSelect.value);
+    submitWeekForm('replace_vegetable');
   }
 
   function onKindToggle(event) {
