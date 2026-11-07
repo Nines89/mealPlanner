@@ -201,6 +201,40 @@ class WeekPlanMealGridTests(TestCase):
             ).exists()
         )
 
+    def test_clear_removes_week_recipes_but_keeps_categories_and_skips(self):
+        week_plan = WeekPlan.objects.create(owner=self.user, week_start=monday_of_week())
+        generated = Meal.objects.create(
+            name='Generated soup', owner=self.user, description=GENERATED_MEAL_MARKER,
+            genre=MealGenre.ZUPPE,
+        )
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan, day=0, meal_slot=self.lunch_slot,
+            genre=MealGenre.ZUPPE, meal=generated,
+        )
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan, day=0, meal_slot=self.dinner_slot,
+            genre=MealGenre.PESCE, meal=self.fish,
+        )
+        WeekPlanSlot.objects.create(
+            week_plan=week_plan, day=1, meal_slot=self.lunch_slot, skipped=True,
+        )
+
+        response = self.client.post(
+            reverse('core:week_plan'), {'form_id': 'clear'}
+        )
+
+        self.assertRedirects(response, reverse('core:week_plan'))
+        lunch = WeekPlanSlot.objects.get(week_plan=week_plan, day=0, meal_slot=self.lunch_slot)
+        dinner = WeekPlanSlot.objects.get(week_plan=week_plan, day=0, meal_slot=self.dinner_slot)
+        skipped = WeekPlanSlot.objects.get(week_plan=week_plan, day=1, meal_slot=self.lunch_slot)
+        self.assertIsNone(lunch.meal)
+        self.assertEqual(lunch.genre, MealGenre.ZUPPE)
+        self.assertIsNone(dinner.meal)
+        self.assertEqual(dinner.genre, MealGenre.PESCE)
+        self.assertTrue(skipped.skipped)
+        self.assertFalse(Meal.objects.filter(pk=generated.pk).exists())
+        self.assertTrue(Meal.objects.filter(pk=self.fish.pk).exists())
+
     def test_invalid_category_is_ignored(self):
         response = self._post_grid({(0, self.lunch_slot.id): 'not-a-genre'})
         self.assertRedirects(response, reverse('core:week_plan'))

@@ -362,6 +362,21 @@ def assign_random_meals(week_plan, meal_slots):
     return GridSaveResult(updated=assigned, removed=0, invalid=missing)
 
 
+def clear_week_plan_meals(week_plan):
+    """Remove assigned dishes while keeping categories and skipped cells intact."""
+    slots = list(
+        WeekPlanSlot.objects.filter(week_plan=week_plan, meal__isnull=False)
+        .select_related('meal')
+    )
+    old_meals = [slot.meal for slot in slots]
+    for slot in slots:
+        slot.meal = None
+        slot.save(update_fields=['meal'])
+    for meal in old_meals:
+        _delete_orphan_generated_meal(meal, week_plan.owner_id)
+    return len(slots)
+
+
 def _source_for_build(plan_slot, meal_slot, genre, pools, used_ids):
     if plan_slot is not None and plan_slot.genre == genre and _ingredients_of(plan_slot.meal):
         return _source_from_slot(plan_slot, meal_slot), 'kept'

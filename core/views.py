@@ -27,6 +27,7 @@ from .targets import targets_for_week_plan
 from .week import (
     apply_fill,
     assign_random_meals,
+    clear_week_plan_meals,
     get_current_week_plan,
     get_week_plan,
     load_fill_page,
@@ -161,6 +162,7 @@ def _handle_week_plan_post(request, week_plan):
         'day_kinds': _save_week_day_kinds,
         'meal_grid': _save_week_genre_grid,
         'build': _build_week_meals,
+        'clear': _clear_week_meals,
         'rebuild_slot': _rebuild_week_slot,
         'swap_slots': _swap_week_slots,
     }
@@ -227,6 +229,12 @@ def _build_week_meals(request, week_plan):
         )
     elif not result.invalid:
         messages.info(request, 'No empty slots to fill. Existing dishes were kept.')
+    return _week_plan_redirect(request)
+
+
+def _clear_week_meals(request, week_plan):
+    removed = clear_week_plan_meals(week_plan)
+    messages.success(request, f'Cleared {removed} recipes from this week.')
     return _week_plan_redirect(request)
 
 
