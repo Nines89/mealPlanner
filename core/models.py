@@ -625,3 +625,22 @@ class ShoppingListHiddenIngredient(models.Model):
                 name='core_shoppinglisthidden_owner_week_ingredient_uniq',
             ),
         ]
+
+
+class ShoppingListIngredientOverride(models.Model):
+    """User-edited display name or quantity for a generated weekly item."""
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='shopping_list_ingredient_overrides'
+    )
+    week_start = models.DateField()
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, blank=True)
+    quantity = models.CharField(max_length=40, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('owner', 'week_start', 'ingredient'),
+                name='core_shoppinglistoverride_owner_week_ingredient_uniq',
+            ),
+        ]

@@ -121,12 +121,17 @@ def grams_to_hit_macro(ingredient, macro_name, target_amount):
     )
 
 
-def slot_share(meal_slot, all_slots, nutrition_target=None):
+def slot_share(
+    meal_slot, all_slots, nutrition_target=None,
+    slot_target=None, slot_targets_loaded=False,
+):
     """
     Fraction of the daily target for this slot.
     Prefers MealSlotTarget.percentage; otherwise hardcoded shares by slot count.
     """
-    stored = _stored_slot_share(nutrition_target, meal_slot)
+    stored = _stored_slot_share(
+        nutrition_target, meal_slot, slot_target, slot_targets_loaded
+    )
     if stored is not None:
         return stored
     slots = sorted(all_slots, key=lambda slot: (slot.order, slot.id))
@@ -142,33 +147,43 @@ def slot_share(meal_slot, all_slots, nutrition_target=None):
     return shares[min(index, len(shares) - 1)]
 
 
-def _stored_slot_share(nutrition_target, meal_slot):
+def _stored_slot_share(
+    nutrition_target, meal_slot, slot_target=None, slot_targets_loaded=False
+):
     if nutrition_target is None:
         return None
-    row = (
+    row = slot_target if slot_targets_loaded else (
         MealSlotTarget.objects.filter(
             nutrition_target=nutrition_target,
             meal_slot=meal_slot,
-        )
-        .only('percentage')
-        .first()
+        ).only('percentage').first()
     )
     if row is None or row.percentage is None:
         return None
     return Decimal(row.percentage) / Decimal('100')
 
 
-def slot_budget(nutrition_target, meal_slot, all_slots):
+def slot_budget(nutrition_target, meal_slot, all_slots, slot_targets=None):
     """Absolute macro budget for one slot (one plate)."""
     if nutrition_target is None:
         return None
-    row = MealSlotTarget.objects.filter(
-        nutrition_target=nutrition_target,
-        meal_slot=meal_slot,
-    ).first()
+    row = (
+        slot_targets.get(meal_slot.id)
+        if slot_targets is not None
+        else MealSlotTarget.objects.filter(
+            nutrition_target=nutrition_target,
+            meal_slot=meal_slot,
+        ).first()
+    )
     if _slot_row_has_macros(row):
         return _budget_from_slot_row(row, nutrition_target)
-    share = slot_share(meal_slot, all_slots, nutrition_target)
+    share = slot_share(
+        meal_slot,
+        all_slots,
+        nutrition_target,
+        slot_target=row,
+        slot_targets_loaded=slot_targets is not None,
+    )
     return _budget_from_daily_target(nutrition_target, share)
 
 
@@ -247,15 +262,27 @@ def scale_ingredients_to_budget(budget, ingredients):
     return items
 
 
-def scale_day_meals(nutrition_target, all_slots, sources):
+def scale_day_meals(nutrition_target, all_slots, sources, slot_target_cache=None):
     """
     Scale each slot from the plan, then fit lunch+dinner into 85–100% of the day.
 
     ``sources`` is a list of ``(meal_slot, name, genre, ingredients)``.
     """
+    slot_targets = None
+    if slot_target_cache is not None:
+        target_id = nutrition_target.id
+        if target_id not in slot_target_cache:
+            slot_target_cache[target_id] = {
+                row.meal_slot_id: row
+                for row in MealSlotTarget.objects.filter(
+                    nutrition_target=nutrition_target,
+                    meal_slot__in=all_slots,
+                )
+            }
+        slot_targets = slot_target_cache[target_id]
     plates = []
     for meal_slot, name, genre, ingredients in sources:
-        budget = slot_budget(nutrition_target, meal_slot, all_slots)
+        budget = slot_budget(nutrition_target, meal_slot, all_slots, slot_targets)
         items = scale_ingredients_to_budget(budget, ingredients)
         plates.append((meal_slot, name, genre, items))
     fitted = fit_day_coverage(

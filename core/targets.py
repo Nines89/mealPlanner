@@ -117,8 +117,14 @@ def day_kind_map(week_plan):
 
 
 def targets_by_day(week_plan):
+    return targets_for_week_plan(week_plan)[1]
+
+
+def targets_for_week_plan(week_plan):
+    """Return both ON/OFF targets and the target assigned to each weekday."""
     ensure_on_off_targets()
     kinds = day_kind_map(week_plan)
     by_kind = {nt.kind: nt for nt in NutritionTarget.objects.filter(kind__in=[DayKind.ON, DayKind.OFF])}
     off = by_kind.get(DayKind.OFF)
-    return {day: by_kind.get(kind, off) for day, kind in kinds.items()}
+    by_day = {day: by_kind.get(kind, off) for day, kind in kinds.items()}
+    return by_kind, by_day

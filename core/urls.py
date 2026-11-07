@@ -16,6 +16,11 @@ urlpatterns = [
     path('lista-spesa/ordine/', views.save_shopping_list_order, name='shopping_list_order'),
     path('lista-spesa/aggiungi/', views.add_shopping_list_item, name='shopping_list_add_item'),
     path(
+        'lista-spesa/<str:item_key>/modifica/',
+        views.edit_shopping_list_item,
+        name='shopping_list_edit_item',
+    ),
+    path(
         'lista-spesa/manuale/<str:item_key>/rimuovi/',
         views.remove_shopping_list_item,
         name='shopping_list_remove_item',

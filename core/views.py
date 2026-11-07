@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpRequest, HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -15,6 +15,7 @@ from .models import (
     Ingredient,
     MealSlot,
     ShoppingListHiddenIngredient,
+    ShoppingListIngredientOverride,
     ShoppingListManualItem,
     ShoppingListOrder,
     WeekDay,
@@ -22,7 +23,7 @@ from .models import (
 )
 from .nutrition import build_today_slots, expected_macros_for_day
 from .planning import shopping_list_for_plan
-from .targets import day_kind_map, get_target_by_kind
+from .targets import targets_for_week_plan
 from .week import (
     apply_fill,
     assign_random_meals,
@@ -77,10 +78,11 @@ def dashboard(request):
     today = date.today()
     week_plan, _monday = get_current_week_plan(user)
     day = today.weekday()
-    kind = day_kind_map(week_plan).get(day) or DayKind.OFF
-    day_target = get_target_by_kind(kind)
+    targets_by_kind, day_targets = targets_for_week_plan(week_plan)
+    day_target = day_targets.get(day)
+    kind = day_target.kind if day_target else DayKind.OFF
     meal_slots = list(MealSlot.objects.filter(user=user).order_by('order'))
-    rescale_assigned_portions(week_plan, meal_slots)
+    rescale_assigned_portions(week_plan, meal_slots, day_targets)
     today_slots, day_effective = build_today_slots(
         meal_slots, _slots_assigned_on(week_plan, day), member_count
     )
@@ -96,8 +98,8 @@ def dashboard(request):
             'household': household,
             'members': members,
             'member_count': member_count,
-            'on_target': get_target_by_kind(DayKind.ON),
-            'off_target': get_target_by_kind(DayKind.OFF),
+            'on_target': targets_by_kind.get(DayKind.ON),
+            'off_target': targets_by_kind.get(DayKind.OFF),
             'today': today,
             'today_day': day,
             'today_label': WeekDay(day).label,
@@ -463,6 +465,18 @@ def _shopping_list_rows(user, monday, week_plan, member_count):
         owner=user, week_start=monday
     ).values_list('ingredient_id', flat=True))
     rows = [row for row in rows if row['ingredient_id'] not in hidden_ids]
+    overrides = {
+        row.ingredient_id: row
+        for row in ShoppingListIngredientOverride.objects.filter(
+            owner=user, week_start=monday
+        )
+    }
+    for row in rows:
+        override = overrides.get(row['ingredient_id'])
+        if override:
+            row['name'] = override.name or row['name']
+            row['quantity'] = override.quantity or row['quantity']
+        row['edit_quantity'] = row['quantity']
     manual_items = ShoppingListManualItem.objects.filter(
         owner=user, week_start=monday
     )
@@ -472,10 +486,64 @@ def _shopping_list_rows(user, monday, week_plan, member_count):
             'manual_id': item.id,
             'name': item.name,
             'quantity': item.quantity or '—',
+            'edit_quantity': item.quantity,
             'section': item.section,
             'manual': True,
         })
     return rows
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def edit_shopping_list_item(
+    request: HttpRequest, item_key: str
+) -> HttpResponseRedirect | HttpResponse:
+    raw_week = request.GET.get('week') if request.method == 'GET' else request.POST.get('week')
+    try:
+        week_start = date.fromisoformat(raw_week or '')
+    except ValueError:
+        raise Http404('Invalid week.')
+    if week_start.weekday() != 0:
+        raise Http404('Week must start on a Monday.')
+    week_plan = week_plan_for_monday(request.user, week_start)
+    household = Household.ensure_for_user(request.user)
+    rows = _shopping_list_rows(
+        request.user, week_start, week_plan, household.member_count() or 1
+    )
+    row = next((item for item in rows if item['order_id'] == item_key), None)
+    if row is None:
+        raise Http404('Shopping list item not found.')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        quantity = request.POST.get('quantity', '').strip()
+        if not name or len(name) > 100 or len(quantity) > 40:
+            messages.error(request, 'Nome e quantità devono essere validi.')
+        elif row.get('manual'):
+            manual = get_object_or_404(
+                ShoppingListManualItem,
+                id=row['manual_id'], owner=request.user, week_start=week_start,
+            )
+            manual.name = name
+            manual.quantity = quantity
+            manual.save(update_fields=['name', 'quantity'])
+            return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
+        else:
+            override, _created = ShoppingListIngredientOverride.objects.get_or_create(
+                owner=request.user,
+                week_start=week_start,
+                ingredient_id=row['ingredient_id'],
+            )
+            override.name = name
+            override.quantity = quantity
+            override.save(update_fields=['name', 'quantity'])
+            return redirect(f"/lista-spesa/?week={week_start.isoformat()}")
+
+    return render(
+        request,
+        'core/shopping_list_item_edit.html',
+        {'row': row, 'week_start': week_start},
+    )
 
 
 @login_required

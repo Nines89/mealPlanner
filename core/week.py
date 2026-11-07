@@ -29,7 +29,7 @@ from .planning import (
     scale_day_meals,
     slot_budget,
 )
-from .targets import get_target_by_kind, targets_by_day
+from .targets import get_target_by_kind, targets_by_day, targets_for_week_plan
 
 WEEK_DAYS = range(7)
 
@@ -282,14 +282,23 @@ def catalog_meals_for(user):
     )
 
 
-def rescale_assigned_portions(week_plan, meal_slots):
+def rescale_assigned_portions(week_plan, meal_slots, day_targets=None):
     """Keep assigned dishes; recompute grams from each day's ON/OFF target."""
-    for day, sources in _assigned_sources_by_day(week_plan).items():
-        _write_scaled_day(week_plan, day, sources, meal_slots)
+    day_targets = day_targets or targets_by_day(week_plan)
+    slot_target_cache = {}
+    sources_by_day, slots_by_day = _assigned_sources_by_day(week_plan)
+    for day, sources in sources_by_day.items():
+        _write_scaled_day(
+            week_plan, day, sources, meal_slots,
+            day_target=day_targets.get(day),
+            slot_target_cache=slot_target_cache,
+            existing_slots=slots_by_day.get(day),
+        )
 
 
 def _assigned_sources_by_day(week_plan):
     grouped = {}
+    slots_by_day = {}
     queryset = (
         WeekPlanSlot.objects.filter(week_plan=week_plan, meal__isnull=False)
         .select_related('meal', 'meal_slot')
@@ -303,6 +312,7 @@ def _assigned_sources_by_day(week_plan):
         ]
         if not ingredients:
             continue
+        slots_by_day.setdefault(plan_slot.day, {})[plan_slot.meal_slot_id] = plan_slot
         grouped.setdefault(plan_slot.day, []).append(
             (
                 plan_slot.meal_slot,
@@ -311,7 +321,7 @@ def _assigned_sources_by_day(week_plan):
                 ingredients,
             )
         )
-    return grouped
+    return grouped, slots_by_day
 
 
 def assign_random_meals(week_plan, meal_slots):
@@ -598,10 +608,10 @@ def _genre_display(genre):
         return genre
 
 
-def day_kind_columns(week_plan, monday=None):
+def day_kind_columns(week_plan, monday=None, day_targets=None):
     today = date.today()
     monday = monday or week_plan.week_start
-    day_targets = targets_by_day(week_plan)
+    day_targets = day_targets or targets_by_day(week_plan)
     return [
         _day_kind_column(day, day_targets.get(day), monday, today)
         for day in WEEK_DAYS
@@ -647,15 +657,15 @@ def week_plan_page_context(user, week_plan, monday):
     members = list(household.members.all())
     member_count = len(members) or 1
     meal_slots = list(MealSlot.objects.filter(user=user).order_by('order'))
-    rescale_assigned_portions(week_plan, meal_slots)
+    targets_by_kind, day_targets = targets_for_week_plan(week_plan)
+    rescale_assigned_portions(week_plan, meal_slots, day_targets)
     slots_list = week_plan_slots(week_plan)
-    day_targets = targets_by_day(week_plan)
     slots_with_meal = [slot for slot in slots_list if slot.meal_id]
     skipped_by_day = defaultdict(list)
     for slot in slots_list:
         if slot.skipped:
             skipped_by_day[slot.day].append(slot.meal_slot)
-    day_columns = day_kind_columns(week_plan, monday)
+    day_columns = day_kind_columns(week_plan, monday, day_targets)
     grid_rows = grid_rows_for(meal_slots, slots_list)
     return {
         'week_plan': week_plan,
@@ -676,8 +686,8 @@ def week_plan_page_context(user, week_plan, monday):
                                                 skipped_slots_by_day=skipped_by_day,
                                                 all_meal_slots=meal_slots,
                                             ),
-        'on_target': get_target_by_kind(DayKind.ON),
-        'off_target': get_target_by_kind(DayKind.OFF),
+        'on_target': targets_by_kind.get(DayKind.ON),
+        'off_target': targets_by_kind.get(DayKind.OFF),
         'today_weekday': date.today().weekday(),
     }
 
@@ -787,28 +797,52 @@ def _ingredients_of(meal):
     ]
 
 
-def _write_scaled_day(week_plan, day, sources, all_slots, focus_slot=None):
-    day_target = targets_by_day(week_plan).get(day) or get_target_by_kind(DayKind.OFF)
+def _write_scaled_day(
+    week_plan, day, sources, all_slots, focus_slot=None, day_target=None,
+    slot_target_cache=None, existing_slots=None,
+):
+    day_target = day_target or targets_by_day(week_plan).get(day) or get_target_by_kind(DayKind.OFF)
     if day_target is None:
         return None
     written = {}
-    for meal_slot, name, genre, items in scale_day_meals(day_target, all_slots, sources):
-        meal = _persist_scaled_slot(week_plan, day, meal_slot, name, genre, items)
+    for meal_slot, name, genre, items in scale_day_meals(
+        day_target, all_slots, sources, slot_target_cache=slot_target_cache
+    ):
+        meal = _persist_scaled_slot(
+            week_plan,
+            day,
+            meal_slot,
+            name,
+            genre,
+            items,
+            existing_slot=(existing_slots or {}).get(meal_slot.id),
+        )
         written[meal_slot.id] = meal
     if focus_slot is not None:
         return written.get(focus_slot.id)
     return next(iter(written.values()), None)
 
 
-def _persist_scaled_slot(week_plan, day, meal_slot, name, genre, items):
-    existing = (
+def _persist_scaled_slot(
+    week_plan, day, meal_slot, name, genre, items, existing_slot=None
+):
+    existing = existing_slot or (
         WeekPlanSlot.objects.filter(week_plan=week_plan, day=day, meal_slot=meal_slot)
         .select_related('meal')
         .first()
     )
     meal = existing.meal if existing else None
     if _is_owned_generated(meal, week_plan.owner_id):
-        _replace_meal_items(meal, items)
+        current_items = {
+            (row.ingredient_id, row.grams)
+            for row in meal.meal_ingredients.all()
+        }
+        desired_items = {
+            (ingredient.id, grams)
+            for ingredient, grams in items
+        }
+        if current_items != desired_items:
+            _replace_meal_items(meal, items)
         _sync_generated_meal_meta(meal, name, genre)
         return meal
     meal = _create_named_meal(week_plan, name, genre, items)

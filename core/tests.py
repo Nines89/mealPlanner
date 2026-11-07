@@ -20,6 +20,7 @@ from .models import (
     MealSlot,
     NutritionTarget,
     ShoppingListHiddenIngredient,
+    ShoppingListIngredientOverride,
     ShoppingListManualItem,
     ShoppingListOrder,
     WeekPlan,
@@ -895,9 +896,19 @@ class NutritionAndShoppingTests(TestCase):
         self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
         item = ShoppingListManualItem.objects.get(owner=self.user, week_start=self.week_plan.week_start)
 
+        edit_url = reverse('core:shopping_list_edit_item', args=[f'manual-{item.id}'])
+        response = self.client.post(
+            edit_url,
+            {'week': week, 'name': 'Caffè deca', 'quantity': '2 confezioni'},
+        )
+        self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
+        item.refresh_from_db()
+        self.assertEqual(item.name, 'Caffè deca')
+        self.assertEqual(item.quantity, '2 confezioni')
+
         page = self.client.get(reverse('core:shopping_list'))
-        self.assertContains(page, 'Caffè')
-        self.assertContains(page, '1 confezione')
+        self.assertContains(page, 'Caffè deca')
+        self.assertContains(page, '2 confezioni')
         self.assertEqual(page.context['rows'][0]['name'], 'Chicken')
         self.assertTrue(any(row.get('manual_id') == item.id for row in page.context['rows']))
 
@@ -920,6 +931,26 @@ class NutritionAndShoppingTests(TestCase):
         )
         self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
         self.assertFalse(ShoppingListManualItem.objects.filter(pk=item.pk).exists())
+
+    def test_generated_shopping_item_can_be_edited_for_the_week(self):
+        self.client.force_login(self.user)
+        week = self.week_plan.week_start.isoformat()
+        response = self.client.post(
+            reverse('core:shopping_list_edit_item', args=[str(self.chicken.id)]),
+            {'week': week, 'name': 'Petto di pollo', 'quantity': '450 g'},
+        )
+
+        self.assertRedirects(response, f"{reverse('core:shopping_list')}?week={week}")
+        override = ShoppingListIngredientOverride.objects.get(
+            owner=self.user,
+            week_start=self.week_plan.week_start,
+            ingredient=self.chicken,
+        )
+        self.assertEqual(override.name, 'Petto di pollo')
+        self.assertEqual(override.quantity, '450 g')
+        page = self.client.get(reverse('core:shopping_list'))
+        self.assertContains(page, 'Petto di pollo')
+        self.assertContains(page, '450 g')
 
     def test_generated_shopping_item_can_be_removed_for_the_week(self):
         self.client.force_login(self.user)
