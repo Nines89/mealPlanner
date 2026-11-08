@@ -20,6 +20,14 @@
     </div>
 </div>
 
+{% if rows %}
+<form method="post" action="{% url 'core:shopping_list_move_to_alexa' %}" class="mb-6">
+    {% csrf_token %}
+    <input type="hidden" name="week" value="{{ week_start|date:'Y-m-d' }}">
+    <button type="submit" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">Sposta su Alexa</button>
+</form>
+{% endif %}
+
 <form method="post" action="{% url 'core:shopping_list_add_item' %}" class="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
     {% csrf_token %}
     <input type="hidden" name="week" value="{{ week_start|date:'Y-m-d' }}">

@@ -3,7 +3,9 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright, expect
 
 LIST_URL = "https://www.amazon.it/alexaquantum/sp/alexaShoppingList"
-PROFILE_DIR = Path("../tests/amazon_profile")
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROFILE_DIR = PROJECT_DIR / "tests" / "amazon_profile"
+ERROR_SCREENSHOT = PROJECT_DIR / "tests" / "debug_error.png"
 
 ADD_TIMEOUT_MS = 10_000
 
@@ -53,7 +55,7 @@ def add_item(page: Page, item: str) -> None:
 def main(items: list[str]) -> None:
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
-            PROFILE_DIR, channel="chrome", headless=False
+            PROFILE_DIR, channel="chrome", headless=True
         )
         try:
             page = context.pages[0] if context.pages else context.new_page()
@@ -62,11 +64,7 @@ def main(items: list[str]) -> None:
             for item in items:
                 add_item(page, item)
         except Exception:
-            page.screenshot(path="../tests/debug_error.png", full_page=True)
+            page.screenshot(path=str(ERROR_SCREENSHOT), full_page=True)
             raise
         finally:
             context.close()
-
-if __name__ == "__main__":
-    items = ["ingr1", "ingr2", "ingr3"]
-    main(items)

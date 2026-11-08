@@ -13,6 +13,11 @@ urlpatterns = [
     ),
     path('famiglia/', views.household_manage, name='household'),
     path('lista-spesa/', views.shopping_list, name='shopping_list'),
+    path(
+        'lista-spesa/move-to-alexa/',
+        views.move_shopping_list_to_alexa,
+        name='shopping_list_move_to_alexa',
+    ),
     path('lista-spesa/ordine/', views.save_shopping_list_order, name='shopping_list_order'),
     path('lista-spesa/aggiungi/', views.add_shopping_list_item, name='shopping_list_add_item'),
     path(

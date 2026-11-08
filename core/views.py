@@ -427,6 +427,47 @@ def shopping_list(request):
 
 @login_required
 @require_POST
+def move_shopping_list_to_alexa(request: HttpRequest) -> HttpResponseRedirect:
+    try:
+        monday = date.fromisoformat(request.POST.get('week', ''))
+    except ValueError as exc:
+        raise Http404('Invalid week.') from exc
+    if monday.weekday() != 0:
+        raise Http404('Week must start on a Monday.')
+
+    week_plan = week_plan_for_monday(request.user, monday)
+    household = Household.ensure_for_user(request.user)
+    rows = _shopping_list_rows(
+        request.user, monday, week_plan, household.member_count() or 1
+    )
+    if not rows:
+        messages.warning(request, 'La lista della spesa è vuota.')
+        return redirect(f"/lista-spesa/?week={monday.isoformat()}")
+
+    items = []
+    for row in rows:
+        name = str(row['name']).strip()
+        grams = row.get('grams')
+        if grams is not None:
+            weight = f"{format(grams.normalize(), 'f')}g"
+        else:
+            weight = ''.join(str(row.get('quantity') or '').split())
+        items.append(f'{name}: {weight}')
+
+    try:
+        from .amazon_alexa import main as send_items_to_alexa
+
+        send_items_to_alexa(items)
+    except Exception as exc:
+        messages.error(request, f'Invio ad Alexa non riuscito: {exc}')
+    else:
+        messages.success(request, f'{len(items)} elementi inviati alla lista Alexa.')
+
+    return redirect(f"/lista-spesa/?week={monday.isoformat()}")
+
+
+@login_required
+@require_POST
 def save_shopping_list_order(request: HttpRequest) -> JsonResponse:
     try:
         payload = json.loads(request.body)
