@@ -219,3 +219,5 @@ __marimo__/
 .streamlit/secrets.toml
 .idea
 .cursor
+tests/amazon_profile
+tests/debug_error.png
