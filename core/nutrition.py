@@ -154,6 +154,46 @@ def build_today_slots(meal_slots, assigned_slots, member_count):
     return today_slots, day_effective
 
 
+def add_weekly_ingredient_percentages(today_slots, week_slots, today_day):
+    """Add each meal ingredient's share of the quantity still planned that week."""
+    weekly_totals = {}
+    for slot in week_slots:
+        if slot.skipped or slot.meal is None:
+            continue
+        for row in slot.meal.meal_ingredients.all():
+            weekly_totals[row.ingredient_id] = (
+                weekly_totals.get(row.ingredient_id, Decimal('0')) + Decimal(row.grams)
+            )
+
+    consumed_before = {}
+    today_by_id = {
+        slot.meal_slot_id: slot for slot in week_slots if slot.day == today_day
+    }
+    for slot in week_slots:
+        if slot.skipped or slot.meal is None:
+            continue
+        for row in slot.meal.meal_ingredients.all():
+            total = weekly_totals[row.ingredient_id]
+            remaining = total - consumed_before.get(row.ingredient_id, Decimal('0'))
+            if slot.day == today_day and slot.meal_slot_id in today_by_id:
+                today_slot = today_by_id[slot.meal_slot_id]
+                if today_slot.meal_id == slot.meal_id:
+                    current_items = next(
+                        (row['items'] for row in today_slots
+                         if row['slot'].id == slot.meal_slot_id),
+                        [],
+                    )
+                    for item in current_items:
+                        if item['ingredient'].id == row.ingredient_id and 'weekly_percent' not in item:
+                            item['weekly_percent'] = min(
+                                Decimal('100'), Decimal(row.grams) * 100 / remaining
+                            ) if remaining > 0 else Decimal('100')
+                            break
+            consumed_before[row.ingredient_id] = (
+                consumed_before.get(row.ingredient_id, Decimal('0')) + Decimal(row.grams)
+            )
+
+
 def _genre_label(plan_slot):
     if plan_slot is None or not plan_slot.genre:
         return ''

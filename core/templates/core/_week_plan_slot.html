@@ -37,7 +37,7 @@
                     class="week-plan-face-chip"
                     data-face-chip
                     data-change-category
-                    aria-label="Change category for {{ entry.slot.name }} on {{ day.label }}"
+                    aria-label="Cambia categoria for {{ entry.slot.name }} on {{ day.label }}"
                     {% if not cell.meal %}hidden{% endif %}>
                 <span aria-hidden="true" data-face-emoji>{% if cell.genre %}{{ cell.genre|genre_emoji }}{% endif %}</span>
                 <span data-face-chip-label>{% if cell.genre_label %}{{ cell.genre_label }}{% endif %}</span>
@@ -46,10 +46,10 @@
         <p class="week-plan-face-title mt-1.5 flex items-start gap-1.5 leading-snug"
            data-face-title>
             <span class="week-plan-plus shrink-0" aria-hidden="true" data-face-plus {% if cell.skipped %}hidden{% endif %}>+</span>
-            <span data-face-title-text>{% if cell.skipped %}No meal planned{% elif cell.meal %}{{ cell.meal.name }}{% elif cell.genre_label %}{{ cell.genre_label }}{% else %}Tap to choose a category{% endif %}</span>        </p>
+            <span data-face-title-text>{% if cell.skipped %}Nessun pasto previsto{% elif cell.meal %}{{ cell.meal.name }}{% elif cell.genre_label %}{{ cell.genre_label }}{% else %}Tocca per scegliere una categoria{% endif %}</span>        </p>
         <p class="mt-1 text-xs font-medium opacity-80"
            data-face-status
-           {% if cell.meal or not cell.genre or cell.skipped %}hidden{% endif %}>Tap to pick a dish</p>
+           {% if cell.meal or not cell.genre or cell.skipped %}hidden{% endif %}>Tocca per scegliere un piatto</p>
         <p class="week-plan-kcal mt-1 text-sm font-bold tabular-nums"
            data-face-kcal
            {% if not cell.kcal %}hidden{% endif %}>{% if cell.kcal %}{{ cell.kcal|floatformat:0 }} kcal{% endif %}</p>
@@ -75,11 +75,11 @@
             <button type="button"
                     class="text-[11px] font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900"
                     data-vegetable-editor-open>
-                Change vegetables
+                Cambia verdura
             </button>
             <div class="mt-2 space-y-2 rounded-lg border border-emerald-100 bg-emerald-50 p-2" data-vegetable-editor hidden>
                 <label class="block text-[10px] font-medium text-gray-600">
-                    Vegetable to replace
+                    Verdura da sostituire
                     <select class="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs" data-vegetable-old>
                         {% for vegetable in cell.vegetables %}
                         <option value="{{ vegetable.id }}">{{ vegetable.name }}</option>
@@ -87,7 +87,7 @@
                     </select>
                 </label>
                 <label class="block text-[10px] font-medium text-gray-600">
-                    Replace with
+                    Sostituisci con
                     <select class="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs" data-vegetable-new>
                         {% for vegetable in vegetable_options %}
                         <option value="{{ vegetable.id }}">{{ vegetable.name }}</option>
@@ -96,10 +96,10 @@
                 </label>
                 <div class="flex gap-2">
                     <button type="button" class="flex-1 rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700" data-vegetable-editor-save>
-                        Save
+                        Salva
                     </button>
                     <button type="button" class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700" data-vegetable-editor-cancel>
-                        Cancel
+                        Annulla
                     </button>
                 </div>
             </div>
@@ -109,7 +109,7 @@
     <button type="button"
             class="week-plan-clear absolute -right-1.5 -top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-base leading-none text-gray-500 shadow-sm hover:bg-rose-50 hover:text-rose-600"
             data-clear-cell
-            aria-label="Clear {{ entry.slot.name }} on {{ day.label }}">
+            aria-label="Svuota {{ entry.slot.name }} on {{ day.label }}">
         ×
     </button>
     <button type="button"

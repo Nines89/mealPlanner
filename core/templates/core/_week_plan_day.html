@@ -6,7 +6,7 @@
     <header class="mb-3 flex min-w-0 flex-col gap-2">
         <div class="min-w-0">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                {% if day.is_today %}Today{% else %}{{ day.short_label }}{% endif %}
+                {% if day.is_today %}Oggi{% else %}{{ day.short_label }}{% endif %}
             </p>
             <h3 class="text-base font-semibold leading-tight text-gray-900">{{ day.label }}</h3>
             {% if day.date %}

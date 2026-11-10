@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block title %}Sign in · Meal Planner{% endblock %}
+{% block title %}Accedi · Pianificatore dei pasti{% endblock %}
 
 {% block content %}
 <section class="mx-auto max-w-sm rounded-lg bg-white p-6 shadow-sm">
-    <h1 class="mb-5 text-xl font-bold">Sign in</h1>
+    <h1 class="mb-5 text-xl font-bold">Accedi</h1>
     <form method="post" class="space-y-4">
         {% csrf_token %}
         {{ form.non_field_errors }}
@@ -16,7 +16,7 @@
             </div>
         {% endfor %}
         <input type="hidden" name="next" value="{{ next }}">
-        <button type="submit" class="w-full rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700">Sign in</button>
+        <button type="submit" class="w-full rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700">Accedi</button>
     </form>
 </section>
 {% endblock %}

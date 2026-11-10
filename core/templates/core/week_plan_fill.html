@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Fill slot — Meal Planner{% endblock %}
+{% block title %}Completa il pasto — Pianificatore dei pasti{% endblock %}
 
 {% block content %}
 
 <div class="max-w-xl mx-auto">
     <div class="mb-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Week plan</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Piano settimanale</p>
         <h1 class="text-2xl font-bold text-gray-900 mt-1">Fill {{ day_label }} · {{ meal_slot.name }}</h1>
         <p class="text-sm text-gray-500 mt-2">
             Scale a plate to this slot’s share of
@@ -82,10 +82,10 @@
 
         <div class="pt-1 flex flex-wrap gap-3">
             <button type="submit" class="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-emerald-700">
-                Fill slot
+                Completa il pasto
             </button>
             <a href="{% url 'core:week_plan' %}" class="inline-flex items-center rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                Cancel
+                Annulla
             </a>
         </div>
     </form>

@@ -16,15 +16,15 @@ _REQUIRED_BY_MODE = {
 }
 
 _FIELD_ERRORS = {
-    'protein': 'Pick a protein.',
-    'vegetable': 'Pick a vegetable.',
+    'protein': 'Scegli una proteina.',
+    'vegetable': 'Scegli una verdura.',
 }
 
 
 class AddHouseholdMemberForm(forms.Form):
     display_name = forms.CharField(
         max_length=80,
-        label='Name',
+        label='Nome',
         widget=forms.TextInput(attrs={'class': FORM_CONTROL_CSS}),
     )
 
@@ -34,39 +34,39 @@ class FillSlotForm(forms.Form):
     MODE_SEMI_AUTO = FILL_SEMI_AUTO
     MODE_AUTOMATIC = FILL_AUTOMATIC
     MODE_CHOICES = (
-        (FILL_SEMI_MANUAL, 'Semi-manual — pick protein and vegetable'),
-        (FILL_SEMI_AUTO, 'Semi-auto — pick protein, random vegetable'),
-        (FILL_AUTOMATIC, 'Automatic — random protein and vegetable'),
+        (FILL_SEMI_MANUAL, 'Semiautomatico — scegli proteina e verdura'),
+        (FILL_SEMI_AUTO, 'Semiautomatico — scegli la proteina, verdura casuale'),
+        (FILL_AUTOMATIC, 'Automatico — proteina e verdura casuali'),
     )
 
     mode = forms.ChoiceField(
         choices=MODE_CHOICES,
         initial=FILL_SEMI_MANUAL,
         widget=forms.RadioSelect,
-        label='Mode',
+        label='Modalità',
     )
     protein = forms.ModelChoiceField(
         queryset=Ingredient.objects.none(),
         required=False,
-        label='Protein',
+        label='Proteina',
         widget=forms.Select(attrs={'class': FORM_CONTROL_CSS}),
     )
     vegetable = forms.ModelChoiceField(
         queryset=Ingredient.objects.none(),
         required=False,
-        label='Vegetable',
+        label='Verdura',
         widget=forms.Select(attrs={'class': FORM_CONTROL_CSS}),
     )
     carb = forms.ModelChoiceField(
         queryset=Ingredient.objects.none(),
         required=False,
-        label='Carb (optional)',
+        label='Carboidrato (facoltativo)',
         widget=forms.Select(attrs={'class': FORM_CONTROL_CSS}),
     )
     fat = forms.ModelChoiceField(
         queryset=Ingredient.objects.none(),
         required=False,
-        label='Fat / oil (optional)',
+        label='Grasso / olio (facoltativo)',
         widget=forms.Select(attrs={'class': FORM_CONTROL_CSS}),
     )
 

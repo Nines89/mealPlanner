@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Shopping list — Meal Planner{% endblock %}
+{% block title %}Lista della spesa — Pianificatore dei pasti{% endblock %}
 
 {% block content %}
 
 <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Shopping list</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Lista della spesa</h1>
         <p class="text-sm text-gray-500 mt-1">
-            Week of <span class="font-medium text-gray-700">{{ week_start|date:"l j F Y" }}</span>
+            Settimana del <span class="font-medium text-gray-700">{{ week_start|date:"l j F Y" }}</span>
             · plate grams × {{ member_count }} {{ member_count|pluralize:"person,people" }}
         </p>
     </div>
     <div class="flex flex-wrap items-center gap-3 text-sm font-medium shrink-0">
-        <a href="?week={{ previous_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">← Previous week</a>
-        <a href="{% url 'core:week_plan' %}?week={{ week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Week plan</a>
-        <a href="?week={{ next_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Next week →</a>
+        <a href="?week={{ previous_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">← Settimana precedente</a>
+        <a href="{% url 'core:week_plan' %}?week={{ week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Piano settimanale</a>
+        <a href="?week={{ next_week_start|date:'Y-m-d' }}" class="text-emerald-600 hover:text-emerald-800">Settimana successiva →</a>
     </div>
 </div>
 
@@ -64,8 +64,8 @@
         <label>
             <span class="mb-1 block text-xs font-medium text-gray-600">Sezione</span>
             <select name="section" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option>Carboidrati</option>
-                <option>Proteine e latticini</option>
+                <option>Carboidratooidrati</option>
+                <option>Proteinae e latticini</option>
                 <option>Grassi e altri</option>
                 <option selected>Vegetali</option>
             </select>
@@ -75,17 +75,17 @@
 </form>
 
 {% if not week_plan %}
-<p class="text-sm text-gray-600">No week plan yet. Open the week plan to create this week’s grid.</p>
+<p class="text-sm text-gray-600">Il piano settimanale non è ancora disponibile. Open the week plan to create this week’s grid.</p>
 {% endif %}
 {% if not rows %}
-<p class="text-sm text-gray-600">No items in this shopping list yet.</p>
+<p class="text-sm text-gray-600">La lista della spesa è vuota.</p>
 {% else %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-shopping-list data-week="{{ week_start|date:'Y-m-d' }}" data-save-url="{% url 'core:shopping_list_order' %}">
     <form class="hidden" data-order-csrf>{% csrf_token %}</form>
     <table class="min-w-full text-sm text-left">
         <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="px-4 py-3 font-semibold text-gray-700">Ingrediente</th>
+                <th class="px-4 py-3 font-semibold text-gray-700">Ingredientee</th>
                 <th class="px-4 py-3 font-semibold text-gray-700 text-right">Quantità</th>
                 <th class="px-4 py-3 font-semibold text-gray-700"></th>
             </tr>

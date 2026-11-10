@@ -21,7 +21,7 @@ from .models import (
     WeekDay,
     WeekPlanSlot,
 )
-from .nutrition import build_today_slots, expected_macros_for_day
+from .nutrition import add_weekly_ingredient_percentages, build_today_slots, expected_macros_for_day
 from .planning import shopping_list_for_plan
 from .targets import targets_for_week_plan
 from .week import (
@@ -88,6 +88,13 @@ def dashboard(request):
     today_slots, day_effective = build_today_slots(
         meal_slots, _slots_assigned_on(week_plan, day), member_count
     )
+    weekly_slots = list(
+        WeekPlanSlot.objects.filter(week_plan=week_plan)
+        .select_related('meal')
+        .prefetch_related('meal__meal_ingredients__ingredient')
+        .order_by('day', 'meal_slot__order')
+    )
+    add_weekly_ingredient_percentages(today_slots, weekly_slots, day)
     assigned_today = _slots_assigned_on(week_plan, day)
     skipped_today = [
         meal_slot for meal_slot in meal_slots

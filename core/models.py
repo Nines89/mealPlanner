@@ -39,10 +39,10 @@ class MealSlot(models.Model):
 # ─────────────────────────────────────────
 
 class DietStyle(models.TextChoices):
-    NONE        = 'none',         'None'
-    VEGETARIAN  = 'vegetarian',   'Vegetarian'
-    VEGAN       = 'vegan',        'Vegan'
-    PESCATARIAN = 'pescatarian',  'Pescatarian'
+    NONE        = 'none',         'Nessuna'
+    VEGETARIAN  = 'vegetarian',   'Vegetariana'
+    VEGAN       = 'vegan',        'Vegana'
+    PESCATARIAN = 'pescatarian',  'Pescetariana'
 
 
 class DayKind(models.TextChoices):
@@ -279,10 +279,10 @@ class MealSlotTarget(models.Model):
 # ─────────────────────────────────────────
 
 class Season(models.TextChoices):
-    SPRING = 'spring', 'Spring'
-    SUMMER = 'summer', 'Summer'
-    AUTUMN = 'autumn', 'Autumn'
-    WINTER = 'winter', 'Winter'
+    SPRING = 'spring', 'Primavera'
+    SUMMER = 'summer', 'Estate'
+    AUTUMN = 'autumn', 'Autunno'
+    WINTER = 'winter', 'Inverno'
 
 
 class SeasonEntry(models.Model):
@@ -481,13 +481,13 @@ class WeekPlan(models.Model):
 
 
 class WeekDay(models.IntegerChoices):
-    MONDAY    = 0, 'Monday'
-    TUESDAY   = 1, 'Tuesday'
-    WEDNESDAY = 2, 'Wednesday'
-    THURSDAY  = 3, 'Thursday'
-    FRIDAY    = 4, 'Friday'
-    SATURDAY  = 5, 'Saturday'
-    SUNDAY    = 6, 'Sunday'
+    MONDAY    = 0, 'Lunedì'
+    TUESDAY   = 1, 'Martedì'
+    WEDNESDAY = 2, 'Mercoledì'
+    THURSDAY  = 3, 'Giovedì'
+    FRIDAY    = 4, 'Venerdì'
+    SATURDAY  = 5, 'Sabato'
+    SUNDAY    = 6, 'Domenica'
 
 
 class DayProfile(models.Model):
