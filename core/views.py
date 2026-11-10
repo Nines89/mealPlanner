@@ -428,6 +428,7 @@ def shopping_list(request):
 @login_required
 @require_POST
 def move_shopping_list_to_alexa(request: HttpRequest) -> HttpResponseRedirect:
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     try:
         monday = date.fromisoformat(request.POST.get('week', ''))
     except ValueError as exc:
@@ -442,6 +443,8 @@ def move_shopping_list_to_alexa(request: HttpRequest) -> HttpResponseRedirect:
     )
     if not rows:
         messages.warning(request, 'La lista della spesa è vuota.')
+        if is_ajax:
+            return JsonResponse({'ok': False})
         return redirect(f"/lista-spesa/?week={monday.isoformat()}")
 
     items = []
@@ -460,8 +463,13 @@ def move_shopping_list_to_alexa(request: HttpRequest) -> HttpResponseRedirect:
         send_items_to_alexa(items)
     except Exception as exc:
         messages.error(request, f'Invio ad Alexa non riuscito: {exc}')
+        succeeded = False
     else:
         messages.success(request, f'{len(items)} elementi inviati alla lista Alexa.')
+        succeeded = True
+
+    if is_ajax:
+        return JsonResponse({'ok': succeeded})
 
     return redirect(f"/lista-spesa/?week={monday.isoformat()}")
 

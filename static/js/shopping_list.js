@@ -1,6 +1,70 @@
 (function () {
   'use strict';
 
+  const sendForm = document.querySelector('[data-alexa-send-form]');
+  const progress = document.querySelector('[data-alexa-progress]');
+  if (sendForm && progress) {
+    const title = progress.querySelector('[data-alexa-progress-title]');
+    const message = progress.querySelector('[data-alexa-progress-message]');
+    const elapsed = progress.querySelector('[data-alexa-elapsed]');
+    const spinner = progress.querySelector('[data-alexa-spinner]');
+    const dismiss = progress.querySelector('[data-alexa-dismiss]');
+    let timer = null;
+
+    function showProgress() {
+      progress.classList.remove('hidden');
+      progress.classList.add('flex');
+      progress.setAttribute('aria-hidden', 'false');
+      const startedAt = Date.now();
+      timer = window.setInterval(() => {
+        const totalSeconds = Math.floor((Date.now() - startedAt) / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        elapsed.textContent = `${minutes}:${seconds}`;
+      }, 1000);
+    }
+
+    function showError(text) {
+      if (timer) window.clearInterval(timer);
+      title.textContent = 'Invio non completato';
+      message.textContent = text;
+      spinner.classList.add('hidden');
+      dismiss.classList.remove('hidden');
+      dismiss.addEventListener('click', () => window.location.reload(), { once: true });
+    }
+
+    sendForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (sendForm.dataset.sending === 'true') return;
+      sendForm.dataset.sending = 'true';
+      const submitButton = sendForm.querySelector('[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+      showProgress();
+
+      try {
+        const response = await fetch(sendForm.action, {
+          method: 'POST',
+          body: new FormData(sendForm),
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+        if (!result.ok) {
+          title.textContent = 'Invio terminato';
+          message.textContent = 'Aggiorno la pagina per mostrare il messaggio di esito.';
+        } else {
+          title.textContent = 'Invio completato';
+          message.textContent = 'Alexa ha ricevuto gli elementi. Aggiorno la lista…';
+        }
+        if (timer) window.clearInterval(timer);
+        window.setTimeout(() => window.location.reload(), 900);
+      } catch (error) {
+        showError('Non riesco a ricevere la risposta dal server. L’invio potrebbe essere ancora in corso; ricarica la pagina per controllare l’esito.');
+      }
+    });
+  }
+
   const list = document.querySelector('[data-shopping-list]');
   if (!list) return;
 
@@ -10,8 +74,11 @@
   let draggedRow = null;
   let draggedHandle = null;
   let draggedPointerId = null;
+  let orderChanged = false;
 
   function saveOrder() {
+    if (!orderChanged) return;
+    orderChanged = false;
     const items = Array.from(body.querySelectorAll('[data-shopping-row]')).map((row) => ({
       id: row.dataset.ingredient,
       section: row.dataset.section,
@@ -40,6 +107,7 @@
     if (reference === row || (!after && row.nextElementSibling === target)) return false;
     row.dataset.section = target.dataset.section;
     body.insertBefore(row, reference);
+    orderChanged = true;
     return true;
   }
 
@@ -47,6 +115,7 @@
     if (!row || !heading || !heading.querySelector('th[colspan]') || row === heading.nextElementSibling) return false;
     row.dataset.section = heading.dataset.section;
     body.insertBefore(row, heading.nextElementSibling);
+    orderChanged = true;
     return true;
   }
 
