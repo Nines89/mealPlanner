@@ -42,8 +42,12 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS')
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('Set DJANGO_ALLOWED_HOSTS when DJANGO_DEBUG is False.')
-if DEBUG and not ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+if DEBUG:
+    # Keep LAN access available in development even when DJANGO_ALLOWED_HOSTS
+    # is set for additional local hostnames.
+    ALLOWED_HOSTS = list(dict.fromkeys([
+        'localhost', '127.0.0.1', '[::1]', '192.168.1.100', *ALLOWED_HOSTS,
+    ]))
 
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 

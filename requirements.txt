@@ -8,3 +8,4 @@ python-dotenv
 playwright
 
 # Install Playwright's Chromium browser separately with: playwright install chromium
+# python.exe -m pip install -e "C:\Users\Utente\Desktop\Paolo\coding\python\4. Progetti\notions\notion_lib"
